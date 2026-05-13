@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>地图演示 — 100×100</title>
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        background: #1a252f;
+        overflow: hidden;
+        font-family: system-ui, sans-serif;
+      }
+      #app {
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+      }
+      canvas {
+        display: block;
+        image-rendering: pixelated;
+        image-rendering: crisp-edges;
+        box-shadow: 0 4px 24px rgba(0, 0, 0, 0.45);
+      }
+      #hud {
+        color: #ecf0f1;
+        font-size: 12px;
+        padding: 8px;
+        text-align: center;
+        max-width: 90vw;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app">
+      <div id="hud"></div>
+      <canvas id="c" width="800" height="600" aria-label="地图画布"></canvas>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

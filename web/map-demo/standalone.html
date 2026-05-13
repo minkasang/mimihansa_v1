@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>地图演示 — 100×100（免 Node）</title>
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        background: #1a252f;
+        overflow: hidden;
+        font-family: system-ui, sans-serif;
+      }
+      #app {
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+      }
+      canvas {
+        display: block;
+        image-rendering: pixelated;
+        image-rendering: crisp-edges;
+        box-shadow: 0 4px 24px rgba(0, 0, 0, 0.45);
+      }
+      #hud {
+        color: #ecf0f1;
+        font-size: 12px;
+        padding: 8px;
+        text-align: center;
+        max-width: 90vw;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app">
+      <div id="hud"></div>
+      <canvas id="c" width="800" height="600" aria-label="地图画布"></canvas>
+    </div>
+    <script>
+      /**
+       * 与 src/main.ts 同源逻辑（免构建）。若修改地形/常量，请同步更新 main.ts。
+       * 规范见 docs/01-系统规范/世界系统.md「地图演示程序」。
+       */
+      const MAP_WIDTH_TILES = 100;
+      const MAP_HEIGHT_TILES = 100;
+      const TILE_PX = 16;
+
+      const Terrain = { Grass: 0, Dirt: 1, Stone: 2, Water: 3 };
+      const TERRAIN_NAMES = {
+        [Terrain.Grass]: "草地",
+        [Terrain.Dirt]: "泥土",
+        [Terrain.Stone]: "石头",
+        [Terrain.Water]: "水面",
+      };
+      const PALETTE = {
+        [Terrain.Grass]: [
+          [0x6b, 0xad, 0x5f],
+          [0x7c, 0xbd, 0x6a],
+          [0x5a, 0x9d, 0x52],
+        ],
+        [Terrain.Dirt]: [
+          [0xa6, 0x7f, 0x52],
+          [0xb8, 0x95, 0x6b],
+          [0x8f, 0x6e, 0x45],
+        ],
+        [Terrain.Stone]: [
+          [0x7a, 0x7e, 0x85],
+          [0x8b, 0x90, 0x99],
+          [0x6a, 0x6e, 0x74],
+        ],
+        [Terrain.Water]: [
+          [0x3d, 0x7a, 0xbc],
+          [0x4a, 0x90, 0xd9],
+          [0x5c, 0xa0, 0xe8],
+        ],
+      };
+
+      function terrainAt(tileX, tileY) {
+        const n =
+          Math.sin(tileX * 0.12) * Math.cos(tileY * 0.11) * 8 +
+          Math.sin((tileX + tileY) * 0.07) * 5 +
+          Math.sin(tileX * 0.03 + tileY * 0.05) * 3;
+        if (n < -4) return Terrain.Water;
+        if (n < -1) return Terrain.Stone;
+        if (n < 3.5) return Terrain.Dirt;
+        return Terrain.Grass;
+      }
+
+      function pickColor(kind, tileX, tileY) {
+        const variants = PALETTE[kind];
+        const idx = (tileX * 31 + tileY * 17) % variants.length;
+        const [r, g, b] = variants[idx];
+        return "rgb(" + r + "," + g + "," + b + ")";
+      }
+
+      function buildTerrainGrid() {
+        const cells = MAP_WIDTH_TILES * MAP_HEIGHT_TILES;
+        const grid = new Uint8Array(cells);
+        let i = 0;
+        for (let y = 0; y < MAP_HEIGHT_TILES; y++) {
+          for (let x = 0; x < MAP_WIDTH_TILES; x++) {
+            grid[i++] = terrainAt(x, y);
+          }
+        }
+        return grid;
+      }
+
+      (function main() {
+        const canvas = document.getElementById("c");
+        const hud = document.getElementById("hud");
+        if (!canvas || !hud) return;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) return;
+        ctx.imageSmoothingEnabled = false;
+
+        const worldPxW = MAP_WIDTH_TILES * TILE_PX;
+        const worldPxH = MAP_HEIGHT_TILES * TILE_PX;
+        const grid = buildTerrainGrid();
+
+        let camX = 0;
+        let camY = 0;
+        let scale = 1;
+        let dragging = false;
+        let lastMx = 0;
+        let lastMy = 0;
+        let hoverTileX = 0;
+        let hoverTileY = 0;
+
+        function clampCam() {
+          const viewW = canvas.width / scale;
+          const viewH = canvas.height / scale;
+          const maxX = Math.max(0, worldPxW - viewW);
+          const maxY = Math.max(0, worldPxH - viewH);
+          camX = Math.max(0, Math.min(maxX, camX));
+          camY = Math.max(0, Math.min(maxY, camY));
+        }
+
+        function resize() {
+          const margin = 48;
+          const w = Math.min(800, window.innerWidth - margin);
+          const h = Math.min(600, window.innerHeight - margin - hud.offsetHeight);
+          canvas.width = Math.max(320, Math.floor(w));
+          canvas.height = Math.max(240, Math.floor(h));
+          clampCam();
+          draw();
+        }
+
+        function screenToWorld(sx, sy) {
+          const rect = canvas.getBoundingClientRect();
+          const x = sx - rect.left;
+          const y = sy - rect.top;
+          return { wx: camX + x / scale, wy: camY + y / scale };
+        }
+
+        function draw() {
+          ctx.fillStyle = "#1a252f";
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+          ctx.save();
+          ctx.scale(scale, scale);
+          ctx.translate(-camX, -camY);
+
+          const x0 = Math.floor(camX / TILE_PX);
+          const y0 = Math.floor(camY / TILE_PX);
+          const x1 = Math.ceil((camX + canvas.width / scale) / TILE_PX);
+          const y1 = Math.ceil((camY + canvas.height / scale) / TILE_PX);
+
+          for (let ty = Math.max(0, y0); ty < Math.min(MAP_HEIGHT_TILES, y1); ty++) {
+            for (let tx = Math.max(0, x0); tx < Math.min(MAP_WIDTH_TILES, x1); tx++) {
+              const kind = grid[ty * MAP_WIDTH_TILES + tx];
+              ctx.fillStyle = pickColor(kind, tx, ty);
+              ctx.fillRect(tx * TILE_PX, ty * TILE_PX, TILE_PX, TILE_PX);
+            }
+          }
+
+          ctx.strokeStyle = "rgba(0,0,0,0.12)";
+          ctx.lineWidth = 1 / scale;
+          for (let ty = Math.max(0, y0); ty < Math.min(MAP_HEIGHT_TILES, y1); ty++) {
+            for (let tx = Math.max(0, x0); tx < Math.min(MAP_WIDTH_TILES, x1); tx++) {
+              ctx.strokeRect(tx * TILE_PX + 0.5, ty * TILE_PX + 0.5, TILE_PX - 1, TILE_PX - 1);
+            }
+          }
+
+          ctx.restore();
+          const hKind = grid[hoverTileY * MAP_WIDTH_TILES + hoverTileX];
+          hud.textContent =
+            "地图演示 " +
+            MAP_WIDTH_TILES +
+            "×" +
+            MAP_HEIGHT_TILES +
+            " 格 · 每格 " +
+            TILE_PX +
+            "px · 悬停 [" +
+            hoverTileX +
+            ", " +
+            hoverTileY +
+            "] " +
+            TERRAIN_NAMES[hKind] +
+            " · 拖拽平移 · 滚轮缩放（免 Node 单文件版）";
+        }
+
+        canvas.addEventListener("mousedown", function (e) {
+          dragging = true;
+          lastMx = e.clientX;
+          lastMy = e.clientY;
+        });
+        window.addEventListener("mouseup", function () {
+          dragging = false;
+        });
+        canvas.addEventListener("mousemove", function (e) {
+          const sw = screenToWorld(e.clientX, e.clientY);
+          hoverTileX = Math.max(0, Math.min(MAP_WIDTH_TILES - 1, Math.floor(sw.wx / TILE_PX)));
+          hoverTileY = Math.max(0, Math.min(MAP_HEIGHT_TILES - 1, Math.floor(sw.wy / TILE_PX)));
+          if (dragging) {
+            camX -= (e.clientX - lastMx) / scale;
+            camY -= (e.clientY - lastMy) / scale;
+            lastMx = e.clientX;
+            lastMy = e.clientY;
+            clampCam();
+          }
+          draw();
+        });
+
+        canvas.addEventListener(
+          "wheel",
+          function (e) {
+            e.preventDefault();
+            const rect = canvas.getBoundingClientRect();
+            const sw = screenToWorld(e.clientX, e.clientY);
+            const factor = e.deltaY > 0 ? 0.92 : 1.08;
+            const newScale = Math.max(0.35, Math.min(3, scale * factor));
+            camX = sw.wx - (e.clientX - rect.left) / newScale;
+            camY = sw.wy - (e.clientY - rect.top) / newScale;
+            scale = newScale;
+            clampCam();
+            draw();
+          },
+          { passive: false },
+        );
+
+        window.addEventListener("resize", resize);
+        resize();
+        console.log("地图演示已加载（standalone）：星露式调色板 + 100×100 网格");
+      })();
+    </script>
+  </body>
+</html>
