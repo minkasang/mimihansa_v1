@@ -1,19 +1,19 @@
 /**
- * 世界地图演示：地形 + NPC（星露谷风格 16×32 精灵）+ WASD 连续走格 + 边缘卷屏 + 走路动画。
+ * 世界地图演示：地形 + NPC（32×64 精美像素精灵）+ WASD 连续走格 + 边缘卷屏 + 走路动画。
  * 规范见 docs《世界系统》地图演示程序、《角色系统》NPC 单文件存储、《角色精灵与动画规范》。
  */
 
 import npcDemo01 from "../../../NPC/npc_demo_01.json";
 import { bindWasdContinuousGrid } from "./interaction/continuousWasd";
-import { drawNpcSprite, type Facing, type AnimationState, type CharacterAppearance } from "./npc/drawNpcSprite";
+import { generateSampleSpriteSheet, getFrameFromSpriteSheet, type Facing, type AnimationState } from "./npc/spriteSheetGenerator";
 import { Terrain, TERRAIN_NAMES } from "./terrain";
 import type { WorldNpcFile } from "./types/worldNpcFile";
 import { buildTerrainGrid, pickColor } from "./world/terrainGen";
 
 const MAP_WIDTH_TILES = 100;
 const MAP_HEIGHT_TILES = 100;
-const TILE_PX = 16;
-const EDGE_MARGIN_PX = 56;
+const TILE_PX = 32; // 增大到 32x32 格子
+const EDGE_MARGIN_PX = 80;
 
 const WALK_FRAME_MS = 120;
 
@@ -23,49 +23,6 @@ function facingFromDelta(dx: number, dy: number): Facing {
   if (dy < 0) return "up";
   return "down";
 }
-
-const APPEARANCES: Record<string, Partial<CharacterAppearance>> = {
-  default: {
-    发色: "#4a3728",
-    肤色: "#f2d3b4",
-    眼睛颜色: "#2c1810",
-    衣服颜色: "#c45c4a",
-    裤子颜色: "#3d5a80",
-    鞋子颜色: "#5c4033",
-  },
-  farmer: {
-    发色: "#8b4513",
-    肤色: "#deb887",
-    眼睛颜色: "#2c1810",
-    衣服颜色: "#556b2f",
-    裤子颜色: "#8b4513",
-    鞋子颜色: "#654321",
-  },
-  merchant: {
-    发色: "#2c1810",
-    肤色: "#f2d3b4",
-    眼睛颜色: "#4169e1",
-    衣服颜色: "#4a4a8a",
-    裤子颜色: "#2c2c2c",
-    鞋子颜色: "#1a1a1a",
-  },
-  warrior: {
-    发色: "#c9a227",
-    肤色: "#d4a574",
-    眼睛颜色: "#228b22",
-    衣服颜色: "#8b0000",
-    裤子颜色: "#3d3d3d",
-    鞋子颜色: "#2c2c2c",
-  },
-  girl: {
-    发色: "#ff6b6b",
-    肤色: "#ffe4c4",
-    眼睛颜色: "#4169e1",
-    衣服颜色: "#ff69b4",
-    裤子颜色: "#dda0dd",
-    鞋子颜色: "#8b4513",
-  },
-};
 
 function main(): void {
   const canvas = document.getElementById("c") as HTMLCanvasElement | null;
@@ -105,15 +62,15 @@ function main(): void {
   let lastWalkFrameTime = 0;
   let isMoving = false;
 
-  const appearanceKeys = Object.keys(APPEARANCES);
-  let currentAppearanceIdx = 0;
-  let currentAppearance = APPEARANCES[appearanceKeys[0]!]!;
+  // 生成精灵表
+  const spriteSheet = generateSampleSpriteSheet();
+  console.log("精灵表已生成，尺寸:", spriteSheet.width, "x", spriteSheet.height);
 
   function centerCameraOnPlayer(): void {
     const viewW = c.width / scale;
     const viewH = c.height / scale;
     camX = playerTileX * TILE_PX + TILE_PX / 2 - viewW / 2;
-    camY = playerTileY * TILE_PX + TILE_PX / 2 - viewH / 2 - 8;
+    camY = playerTileY * TILE_PX + TILE_PX / 2 - viewH / 2 - 16;
     clampCam();
   }
 
@@ -191,22 +148,31 @@ function main(): void {
       }
     }
 
-    drawNpcSprite(
-      context,
-      playerTileX * TILE_PX,
-      playerTileY * TILE_PX,
-      TILE_PX,
-      facing,
-      currentAppearance,
-      animState,
-      walkFrame
+    // 使用精灵表绘制角色
+    const animIndex = animState === "idle" ? 0 : 1;
+    const dirIndex = facing === "down" ? 0 : facing === "up" ? 1 : 2;
+    const frameRect = getFrameFromSpriteSheet(
+      spriteSheet,
+      32, 64,
+      animIndex,
+      dirIndex,
+      walkFrame,
+      3
+    );
+
+    const spriteX = playerTileX * TILE_PX + (TILE_PX - 32) / 2;
+    const spriteY = playerTileY * TILE_PX + TILE_PX - 64;
+
+    context.drawImage(
+      spriteSheet,
+      frameRect.x, frameRect.y, frameRect.width, frameRect.height,
+      spriteX, spriteY, 32, 64
     );
 
     context.restore();
 
     const hKind = grid[hoverTileY * MAP_WIDTH_TILES + hoverTileX] as Terrain;
-    const appearanceName = appearanceKeys[currentAppearanceIdx];
-    hudEl.textContent = `地图演示 · ${npcData.姓名} (${npcData.角色id}) 格[${playerTileX},${playerTileY}] · 外观[${appearanceName}] · 悬停[${hoverTileX},${hoverTileY}] ${TERRAIN_NAMES[hKind]} · WASD移动 · E切换外观 · 滚轮缩放`;
+    hudEl.textContent = `地图演示 · ${npcData.姓名} (${npcData.角色id}) 格[${playerTileX},${playerTileY}] · 32×64像素角色 · 悬停[${hoverTileX},${hoverTileY}] ${TERRAIN_NAMES[hKind]} · WASD移动 · 滚轮缩放`;
   }
 
   const unbindWalk = bindWasdContinuousGrid({
@@ -265,20 +231,11 @@ function main(): void {
     { passive: false }
   );
 
-  window.addEventListener("keydown", (e) => {
-    if (e.key.toLowerCase() === "e") {
-      e.preventDefault();
-      currentAppearanceIdx = (currentAppearanceIdx + 1) % appearanceKeys.length;
-      currentAppearance = APPEARANCES[appearanceKeys[currentAppearanceIdx]!]!;
-      draw();
-    }
-  });
-
   window.addEventListener("resize", resize);
   window.addEventListener("beforeunload", unbindWalk);
   resize();
 
-  console.log("地图演示已加载：地形 + 星露谷风格NPC(16×32) + WASD移动 + E切换外观 + 滚轮缩放");
+  console.log("地图演示已加载：32×64像素角色 + 精灵表系统 + WASD移动 + 滚轮缩放");
 }
 
 main();
