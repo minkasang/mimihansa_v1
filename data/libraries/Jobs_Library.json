@@ -1,0 +1,99 @@
+{
+  "_说明": "打工/工作库 - 定义世界中所有可接的工作任务。新增工种只需在此加一条",
+  "_版本": "1.0",
+
+  "工作定义": [
+    {
+      "工作id": "job_harvest_apple",
+      "名称": "帮吴平摘苹果",
+      "发布者": "吴平",
+      "位置": "水果店",
+      "需求条件": { "体力": [">", 3] },
+      "消耗": { "疲劳": "+2", "时间": 120 },
+      "报酬": { "金钱": 15, "好感": { "吴平": 5 } },
+      "可重复": true,
+      "对话_接取": { "template_id": "trade_buy" },
+      "对话_完成": { "template_id": "accept_gift" },
+      "指令序列": [
+        { "module": "move_to", "params": { "target": [35, 14] } },
+        { "module": "say", "params": { "text": "我来帮忙摘苹果！", "type": "speak", "duration": 2500 } },
+        { "module": "play_animation", "params": { "animation": "sit", "duration": 4000 } },
+        { "module": "wait", "params": { "duration": 4000 } },
+        { "module": "set_state", "params": { "key": "金钱", "value": 15, "operation": "add" } },
+        { "module": "set_state", "params": { "key": "疲劳", "value": 2, "operation": "add" } }
+      ]
+    },
+    {
+      "工作id": "job_carry_goods",
+      "名称": "搬运货物",
+      "发布者": "胡倩",
+      "位置": "衣服店",
+      "描述": "帮忙搬运新到的布料",
+      "需求条件": { "体力": [">=", 5], "力量": [">=", 4] },
+      "消耗": { "疲劳": "+3", "时间": 60 },
+      "报酬": { "金钱": 30, "好感": { "胡倩": 10 } },
+      "可重复": true,
+      "指令序列": [
+        { "module": "move_to", "params": { "target": [47, 14] } },
+        { "module": "say", "params": { "text": "这些布料我来搬！", "type": "speak", "duration": 2500 } },
+        { "module": "play_animation", "params": { "animation": "walk", "duration": 3000 } },
+        { "module": "set_state", "params": { "key": "金钱", "value": 30, "operation": "add" } },
+        { "module": "set_state", "params": { "key": "疲劳", "value": 3, "operation": "add" } }
+      ]
+    },
+    {
+      "工作id": "job_clean_shop",
+      "名称": "打扫店铺",
+      "发布者": "胡倩",
+      "位置": "衣服店",
+      "描述": "打扫店铺卫生",
+      "需求条件": { "体力": [">", 2] },
+      "消耗": { "疲劳": "+1", "时间": 30 },
+      "报酬": { "金钱": 20, "好感": { "胡倩": 5 } },
+      "可重复": true,
+      "指令序列": [
+        { "module": "move_to", "params": { "target": [47, 14] } },
+        { "module": "say", "params": { "text": "我帮你打扫！", "type": "speak", "duration": 2500 } },
+        { "module": "play_animation", "params": { "animation": "sit", "duration": 2000 } },
+        { "module": "set_state", "params": { "key": "金钱", "value": 20, "operation": "add" } },
+        { "module": "set_state", "params": { "key": "疲劳", "value": 1, "operation": "add" } }
+      ]
+    },
+    {
+      "工作id": "job_water_flowers",
+      "名称": "浇花",
+      "发布者": "云香",
+      "位置": "花店",
+      "描述": "帮忙浇花店的花",
+      "需求条件": { "体力": [">", 2] },
+      "消耗": { "疲劳": "+1", "时间": 40 },
+      "报酬": { "金钱": 10, "好感": { "云香": 8 } },
+      "可重复": true,
+      "指令序列": [
+        { "module": "move_to", "params": { "target": [60, 14] } },
+        { "module": "say", "params": { "text": "花儿我来浇！", "type": "speak", "duration": 2500 } },
+        { "module": "play_animation", "params": { "animation": "sit", "duration": 2500 } },
+        { "module": "set_state", "params": { "key": "金钱", "value": 10, "operation": "add" } },
+        { "module": "set_state", "params": { "key": "疲劳", "value": 1, "operation": "add" } }
+      ]
+    },
+    {
+      "工作id": "job_farm_work",
+      "名称": "农田劳作",
+      "发布者": "系统",
+      "位置": "麦田",
+      "描述": "在农田干活",
+      "需求条件": { "体力": [">=", 3] },
+      "消耗": { "疲劳": "+3", "时间": 90 },
+      "报酬": { "金钱": 10, "食物": "苹果" },
+      "可重复": true,
+      "指令序列": [
+        { "module": "move_to", "params": { "target": [50, 90] } },
+        { "module": "say_from_template", "params": { "template_id": "work_farm", "duration": 3000 } },
+        { "module": "wait", "params": { "duration": 6000 } },
+        { "module": "set_state", "params": { "key": "金钱", "value": 10, "operation": "add" } },
+        { "module": "set_state", "params": { "key": "疲劳", "value": 3, "operation": "add" } }
+      ]
+    }
+  ]
+}

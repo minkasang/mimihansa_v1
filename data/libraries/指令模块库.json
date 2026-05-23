@@ -1,0 +1,202 @@
+{
+  "_说明": "指令模块库 - 像乐高积木一样组合动作。每个模块是一个独立功能单元，剧本通过组合模块实现复杂行为",
+  "_版本": "1.0",
+
+  "modules": {
+    "move_to": {
+      "id": "move_to",
+      "名称": "移动到",
+      "描述": "移动到指定坐标或目标",
+      "参数": {
+        "target": "坐标[x,y] 或 npcId 或 buildingId",
+        "speed": "移动速度倍率(默认1.0)",
+        "range": "到达判定距离(默认0.5格)"
+      },
+      "示例": { "target": [50, 30], "speed": 1.0 }
+    },
+
+    "move_in_area": {
+      "id": "move_in_area",
+      "名称": "区域内移动",
+      "描述": "在指定区域内随机移动",
+      "参数": {
+        "center": "中心坐标[x,y]",
+        "radius": "活动半径(格数)",
+        "min_stay": "最小停留时间(ms)",
+        "max_stay": "最大停留时间(ms)"
+      },
+      "示例": { "center": [45, 75], "radius": 5, "min_stay": 2000, "max_stay": 5000 }
+    },
+
+    "play_animation": {
+      "id": "play_animation",
+      "名称": "播放动画",
+      "描述": "播放指定动画",
+      "参数": {
+        "animation": "动画名(idle/walk/wave/sit/sleep)",
+        "duration": "持续时间(ms)，-1表示无限"
+      },
+      "示例": { "animation": "wave", "duration": 2000 }
+    },
+
+    "say": {
+      "id": "say",
+      "名称": "说话",
+      "描述": "显示对话气泡",
+      "参数": {
+        "text": "对话内容",
+        "duration": "显示时长(ms)",
+        "type": "对话类型(speak/thought/action/emotion)"
+      },
+      "示例": { "text": "欢迎光临！", "duration": 3000, "type": "speak" }
+    },
+
+    "say_from_template": {
+      "id": "say_from_template",
+      "名称": "从模板说话",
+      "描述": "从对话模板库中随机选择一条",
+      "参数": {
+        "template_id": "模板ID",
+        "duration": "显示时长(ms)"
+      },
+      "示例": { "template_id": "merchant_greeting", "duration": 3000 }
+    },
+
+    "wait": {
+      "id": "wait",
+      "名称": "等待",
+      "描述": "原地等待一段时间",
+      "参数": {
+        "duration": "等待时间(ms)",
+        "animation": "等待时播放的动画(可选)"
+      },
+      "示例": { "duration": 3000, "animation": "idle" }
+    },
+
+    "probability_check": {
+      "id": "probability_check",
+      "名称": "概率判定",
+      "描述": "根据概率决定执行哪个分支",
+      "参数": {
+        "chance": "成功概率(0-1)",
+        "success_module": "成功时执行的模块",
+        "fail_module": "失败时执行的模块"
+      },
+      "示例": { "chance": 0.7, "success_module": "say_from_template", "fail_module": "wait" }
+    },
+
+    "condition_check": {
+      "id": "condition_check",
+      "名称": "条件判定",
+      "描述": "检查条件，满足则执行",
+      "参数": {
+        "condition": "条件表达式",
+        "true_module": "条件为真时执行",
+        "false_module": "条件为假时执行"
+      },
+      "示例": {
+        "condition": "personality.乐观 >= 6",
+        "true_module": "say",
+        "false_module": "wait"
+      }
+    },
+
+    "look_at": {
+      "id": "look_at",
+      "名称": "看向目标",
+      "描述": "转身面向指定目标",
+      "参数": {
+        "target": "目标坐标或npcId"
+      },
+      "示例": { "target": "player" }
+    },
+
+    "interact": {
+      "id": "interact",
+      "名称": "交互",
+      "描述": "与目标进行交互",
+      "参数": {
+        "target": "交互目标npcId",
+        "action": "交互类型(talk/trade/give/quest)"
+      },
+      "示例": { "target": "yunfei", "action": "talk" }
+    },
+
+    "set_state": {
+      "id": "set_state",
+      "名称": "设置状态",
+      "描述": "修改NPC的状态值",
+      "参数": {
+        "key": "状态键",
+        "value": "状态值",
+        "operation": "操作(set/add/sub)"
+      },
+      "示例": { "key": "疲劳", "value": 10, "operation": "add" }
+    },
+
+    "open_shop": {
+      "id": "open_shop",
+      "名称": "开店",
+      "描述": "打开商铺，开始营业",
+      "参数": {
+        "shop_id": "商铺ID",
+        "greeting": "是否播放欢迎语"
+      },
+      "示例": { "shop_id": "clothes_shop", "greeting": true }
+    },
+
+    "close_shop": {
+      "id": "close_shop",
+      "名称": "关店",
+      "描述": "关闭商铺，停止营业",
+      "参数": {
+        "shop_id": "商铺ID",
+        "farewell": "是否播放告别语"
+      },
+      "示例": { "shop_id": "clothes_shop", "farewell": true }
+    },
+
+    "attract_customer": {
+      "id": "attract_customer",
+      "名称": "招揽顾客",
+      "描述": "向附近的NPC招揽生意",
+      "参数": {
+        "range": "招揽范围(格数)",
+        "template_id": "招揽用语模板ID"
+      },
+      "示例": { "range": 8, "template_id": "merchant_attract" }
+    },
+
+    "loop": {
+      "id": "loop",
+      "名称": "循环",
+      "描述": "循环执行一组模块",
+      "参数": {
+        "modules": "模块数组",
+        "count": "循环次数，-1表示无限"
+      },
+      "示例": {
+        "modules": [
+          { "module": "move_in_area", "params": { "center": [45,75], "radius": 3 } },
+          { "module": "wait", "params": { "duration": 2000 } }
+        ],
+        "count": -1
+      }
+    },
+
+    "sequence": {
+      "id": "sequence",
+      "名称": "序列",
+      "描述": "按顺序执行一组模块",
+      "参数": {
+        "modules": "模块数组"
+      },
+      "示例": {
+        "modules": [
+          { "module": "move_to", "params": { "target": [45, 75] } },
+          { "module": "say", "params": { "text": "我到了！", "type": "speak" } }
+        ]
+      }
+    }
+  }
+}

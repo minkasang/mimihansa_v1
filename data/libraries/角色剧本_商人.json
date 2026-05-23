@@ -1,0 +1,173 @@
+{
+  "_说明": "商人角色剧本 - 定义商人的日常行为模式。通过组合指令模块实现",
+  "_版本": "1.0",
+
+  "角色类型": "商人",
+  "核心行为原则": [
+    "主要活动范围限定在商铺周边",
+    "首要任务是卖东西、做生意",
+    "会在商铺门口招揽顾客",
+    "不会跑太远，除非有紧急情况",
+    "营业时间固定，有关店逻辑"
+  ],
+
+  "剧本": {
+    "胡倩_日常营业": {
+      "id": "huqian_daily",
+      "角色": "胡倩",
+      "商铺": "clothes_shop",
+      "商铺位置": [45, 75],
+      "活动范围": {
+        "中心": [45, 75],
+        "半径": 5
+      },
+      "营业时间": {
+        "开始": "08:00",
+        "结束": "20:00"
+      },
+
+      "行为状态机": {
+        "开店准备": {
+          "触发条件": "时间 >= 08:00 且 未营业",
+          "指令序列": [
+            { "module": "move_to", "params": { "target": [45, 75] } },
+            { "module": "open_shop", "params": { "shop_id": "clothes_shop", "greeting": true } },
+            { "module": "say_from_template", "params": { "template_id": "shop_open", "duration": 3000 } }
+          ]
+        },
+
+        "营业中_招揽": {
+          "触发条件": "营业中 且 附近无顾客",
+          "指令序列": [
+            { "module": "move_in_area", "params": { "center": [45, 75], "radius": 3, "min_stay": 2000, "max_stay": 4000 } },
+            { "module": "attract_customer", "params": { "range": 8, "template_id": "merchant_attract" } },
+            { "module": "play_animation", "params": { "animation": "wave", "duration": 1500 } }
+          ],
+          "循环": true
+        },
+
+        "营业中_接待": {
+          "触发条件": "营业中 且 顾客进入范围",
+          "指令序列": [
+            { "module": "look_at", "params": { "target": "customer" } },
+            { "module": "say_from_template", "params": { "template_id": "merchant_greeting", "duration": 3000 } },
+            { "module": "interact", "params": { "target": "customer", "action": "talk" } }
+          ]
+        },
+
+        "关店": {
+          "触发条件": "时间 >= 20:00 或 紧急情况",
+          "指令序列": [
+            { "module": "say_from_template", "params": { "template_id": "shop_close", "duration": 3000 } },
+            { "module": "close_shop", "params": { "shop_id": "clothes_shop", "farewell": true } },
+            { "module": "move_to", "params": { "target": [45, 80] } }
+          ]
+        }
+      }
+    },
+
+    "吴平_日常营业": {
+      "id": "wuping_daily",
+      "角色": "吴平",
+      "商铺": "fruit_shop",
+      "商铺位置": [35, 18],
+      "活动范围": {
+        "中心": [35, 18],
+        "半径": 4
+      },
+      "营业时间": {
+        "开始": "06:00",
+        "结束": "21:00"
+      },
+
+      "行为状态机": {
+        "开店准备": {
+          "触发条件": "时间 >= 06:00 且 未营业",
+          "指令序列": [
+            { "module": "move_to", "params": { "target": [35, 18] } },
+            { "module": "open_shop", "params": { "shop_id": "fruit_shop", "greeting": true } },
+            { "module": "say_from_template", "params": { "template_id": "fruit_shop_open", "duration": 3000 } }
+          ]
+        },
+
+        "营业中_招揽": {
+          "触发条件": "营业中 且 附近无顾客",
+          "指令序列": [
+            { "module": "move_in_area", "params": { "center": [35, 18], "radius": 2, "min_stay": 3000, "max_stay": 6000 } },
+            { "module": "attract_customer", "params": { "range": 8, "template_id": "fruit_attract" } },
+            { "module": "play_animation", "params": { "animation": "wave", "duration": 1500 } }
+          ],
+          "循环": true
+        },
+
+        "营业中_整理货物": {
+          "触发条件": "营业中 且 无顾客 且 概率0.3",
+          "指令序列": [
+            { "module": "play_animation", "params": { "animation": "sit", "duration": 2000 } },
+            { "module": "say_from_template", "params": { "template_id": "merchant_work", "duration": 2500 } }
+          ]
+        },
+
+        "关店": {
+          "触发条件": "时间 >= 21:00",
+          "指令序列": [
+            { "module": "say_from_template", "params": { "template_id": "shop_close", "duration": 3000 } },
+            { "module": "close_shop", "params": { "shop_id": "fruit_shop", "farewell": true } },
+            { "module": "move_to", "params": { "target": [35, 22] } }
+          ]
+        }
+      }
+    },
+
+    "云香_日常营业": {
+      "id": "yunxiang_daily",
+      "角色": "云香",
+      "商铺": "flower_shop",
+      "商铺位置": [60, 18],
+      "活动范围": {
+        "中心": [60, 18],
+        "半径": 4
+      },
+      "营业时间": {
+        "开始": "07:00",
+        "结束": "19:00"
+      },
+
+      "行为状态机": {
+        "开店准备": {
+          "触发条件": "时间 >= 07:00 且 未营业",
+          "指令序列": [
+            { "module": "move_to", "params": { "target": [60, 18] } },
+            { "module": "open_shop", "params": { "shop_id": "flower_shop", "greeting": true } },
+            { "module": "say_from_template", "params": { "template_id": "flower_shop_open", "duration": 3000 } }
+          ]
+        },
+
+        "营业中_招揽": {
+          "触发条件": "营业中 且 附近无顾客",
+          "指令序列": [
+            { "module": "move_in_area", "params": { "center": [60, 18], "radius": 2, "min_stay": 2000, "max_stay": 5000 } },
+            { "module": "attract_customer", "params": { "range": 8, "template_id": "flower_attract" } }
+          ],
+          "循环": true
+        },
+
+        "营业中_浇花": {
+          "触发条件": "营业中 且 无顾客 且 概率0.4",
+          "指令序列": [
+            { "module": "play_animation", "params": { "animation": "sit", "duration": 3000 } },
+            { "module": "say_from_template", "params": { "template_id": "flower_care", "duration": 2500 } }
+          ]
+        },
+
+        "关店": {
+          "触发条件": "时间 >= 19:00",
+          "指令序列": [
+            { "module": "say_from_template", "params": { "template_id": "shop_close", "duration": 3000 } },
+            { "module": "close_shop", "params": { "shop_id": "flower_shop", "farewell": true } }
+          ]
+        }
+      }
+    }
+  }
+}

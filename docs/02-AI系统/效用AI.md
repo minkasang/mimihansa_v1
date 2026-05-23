@@ -10,166 +10,122 @@
 
 ---
 
-## 决策流程
+## 实现状态
+
+✅ **已全部实现**（阶段1-14）。核心引擎文件：
+
+| 引擎组件 | 文件 | 职责 |
+|---------|------|------|
+| DesireEvaluator | `engine/DesireEvaluator.ts` | 加载 `Desires_Library.json`（19条欲望），逐条检查触发条件 |
+| ScoreCalculator | `engine/ScoreCalculator.ts` | 加载 `Brains_Library.json`，按34维性格为动作打分 |
+| ActionLibrary | `engine/ActionLibrary.ts` | 加载 `Actions_Library.json`（14个动作），提供指令序列 |
+| GOAPPlanner | `engine/GOAPPlanner.ts` | 数据驱动规划，从ActionLibrary取指令 |
+| InterruptChecker | `engine/InterruptChecker.ts` | 生存威胁+天气感知中断 |
+| BrainEngine | `engine/BrainEngine.ts` | 主循环tick，欲望×性格打分→选最优→执行 |
+| WorldDynamics | `engine/WorldDynamics.ts` | 动作完成后：性格变化+好感度+知识传递 |
+| PathFinder | `engine/PathFinder.ts` | A*寻路，替代直线移动 |
+| ConditionEvaluator | `engine/ConditionEvaluator.ts` | 通用条件解析（>=、<、且/或/非/概率） |
+| ModuleRegistry | `engine/ModuleRegistry.ts` | 指令模块注册表 |
+| ModuleFactory | `engine/ModuleFactory.ts` | 加载 `指令模块库.json`，注册所有内置模块 |
+
+数据账本（全部JSON驱动）：
+
+| 数据文件 | 用途 |
+|---------|------|
+| `data/libraries/Desires_Library.json` | 19条欲望定义（触发条件+优先级+生成目标） |
+| `data/libraries/Brains_Library.json` | 34维性格体系+每动作的评分规则+弹性性格变化规则 |
+| `data/libraries/Actions_Library.json` | 14个动作（指令序列+性格倾向+效果） |
+| `data/libraries/指令模块库.json` | 所有原子模块元数据 |
+| `NPC/*/个人信息.json` | 每个NPC的34维性格+生理状态+知识库 |
+
+---
+
+## 实际决策流程
 
 ```
-┌─────────────┐
-│  1. 寻找痛点  │  扫描动态需求，找出最急迫的
-└──────┬──────┘
-       │
-       ▼
-┌─────────────┐
-│  2. 扫描环境  │  获取周围带有对应标签的物品/人
-└──────┬──────┘
-       │
-       ▼
-┌─────────────┐
-│  3. 动作打分  │  计算各项动作的效用得分
-└──────┬──────┘
-       │
-       ▼
-┌─────────────┐
-│  4. 执行动作  │  执行得分最高的行为链路
-└─────────────┘
+Tick推进(每16ms)
+  → 生理更新: 疲劳+0.01, 饥饿+0.005, 心情→5
+  → 感知扫描: PerceptionSystem → 周围NPC/物品
+  → 每1000ms一次决策:
+     → DesireEvaluator 评估19条欲望 → 激活列表(按优先级排序)
+     → ActionLibrary.findActionsByTargetType() 找候选动作
+     → ScoreCalculator.scoreAction() 按34维性格对每个候选打分
+     → 组合分 = 欲望优先级×10 + 动作性格分
+     → 选最优(欲望,动作)组合
+  → GOAPPlanner 从ActionLibrary取指令序列(替换$变量)
+  → executeStep() 逐步执行(wait/play_animation有耗时，其他瞬时)
+  → state_change落地(Npc.applyStateChange): 饥饿↓、疲劳↓、金钱增减
+  → 计划完成 → WorldDynamics.onActionCompleted(): 性格变化+好感度+知识传递
+  → 每天黎明 → dailyReversion(): 性格向5回弹
 ```
 
 ---
 
-## 步骤详解
+## 动作打分公式
 
-### 1. 寻找痛点
-
-每Tick扫描角色的"动态需求"，找出最急迫的：
-
-```python
-def 寻找痛点(角色):
-    需求列表 = 角色.动态需求
-    最急迫 = None
-    最高值 = 0
-    
-    for 需求名, 需求值 in 需求列表.items():
-        if 需求值 > 最高值:
-            最高值 = 需求值
-            最急迫 = 需求名
-    
-    return 最急迫, 最高值
+```
+必要条件检查: 乐观>=6 AND 社交欲>=5 → 通过
+抑制条件检查: 道德>=8 OR 宽容>=7 → 如满足则直接0分
+基础分: 50
+加分项: 勇敢>=6 → +20; 大方>=7 → +15; 冲动>=6 → +10
+减分项: 谨慎>=7 → -20; 城府>=7 → -10
+状态修正: 饥饿>7 → score=max(score, 饥饿×5)
+最终得分 = 50 + 20 + 15 - 0 = 85
 ```
 
-### 2. 扫描环境
-
-获取周围网格内带有对应标签的物品或人：
-
-```python
-def 扫描环境(角色, 目标标签列表, 搜索半径=10):
-    结果列表 = []
-    
-    for 格子 in 获取周围格子(角色.坐标, 搜索半径):
-        for 物品 in 格子.物品列表:
-            if 标签匹配(物品.标签, 目标标签列表):
-                结果列表.append(物品)
-        
-        for npc in 格子.npc列表:
-            if 标签匹配(npc.性格标签, 目标标签列表):
-                结果列表.append(npc)
-    
-    return 结果列表
-```
-
-### 3. 动作打分
-
-计算各项基础动作的得分，**受性格系统权重修正**：
-
-```python
-def 动作打分(角色, 目标, 动作类型):
-    基础分 = 获取基础分(动作类型, 目标)
-    
-    性格修正 = 1.0
-    for 维度名, 维度值 in 角色.性格维度.items():
-        乘数 = 获取性格乘数(维度名, 动作类型)
-        性格修正 *= (1 + 维度值/100 * 乘数)
-    
-    最终得分 = 基础分 * 性格修正
-    return 最终得分
-```
-
-### 4. 执行动作
-
-执行得分最高的行为链路：
-
-```python
-def 执行动作(角色, 目标, 动作类型):
-    if 动作类型 == "靠近":
-        移动向目标(角色, 目标)
-    elif 动作类型 == "拾取":
-        拾取物品(角色, 目标)
-    elif 动作类型 == "使用":
-        使用物品(角色, 目标)
-    elif 动作类型 == "对话":
-        发起对话(角色, 目标)
-    elif 动作类型 == "攻击":
-        发起攻击(角色, 目标)
-```
+完整评分规则定义在 `Brains_Library.json` 的 `动作性格要求` 中。
 
 ---
 
-## 动作类型
+## 欲望库（19条）
 
-| 动作 | 说明 | 基础分计算因素 |
-|------|------|----------------|
-| 靠近 | 移动到目标附近 | 距离越近分越高 |
-| 拾取 | 捡起物品 | 物品价值、需求匹配度 |
-| 使用 | 使用物品 | 效果匹配度 |
-| 购买 | 从商店购买 | 价格、需求紧迫度 |
-| 偷窃 | 偷取他人物品 | 道德扣分、被发现风险 |
-| 对话 | 与NPC交谈 | 好感度、社交需求 |
-| 攻击 | 攻击目标 | 好感度、性格 |
-| 工作 | 执行职业任务 | 收益、疲劳度 |
-
----
-
-## 性格权重修正
-
-性格维度影响动作得分：
-
-| 性格维度 | 对"偷窃"的影响 | 对"攻击"的影响 |
-|----------|----------------|----------------|
-| 道德水准_利他意愿 | 大幅扣分 | 扣分 |
-| 胆魄气量_勇气阈值 | 略微加分 | 加分 |
-| 情绪基调_情绪稳定性 | - | 不稳定时加分 |
-
-详见 [性格系统.md](../01-系统规范/性格系统.md)
+| 优先级 | 欲望id | 触发条件示例 |
+|--------|--------|-------------|
+| 9 | want_sleep | 疲劳>7 |
+| 8 | want_eat | 饥饿>7 |
+| 6 | want_chat_up | 好色≥5 AND 看到高颜值NPC |
+| 5 | want_rest/want_give_gift | 疲劳5~7 / 被拒绝记忆+乐观≥5 |
+| 4 | want_socialize/want_work | 社交欲≥5+附近有NPC / 勤奋≥5+缺钱 |
+| 3 | want_sunbathe/want_tend_crops/want_exercise/want_fish/want_trade/want_share_knowledge | 各性格+状态门槛 |
+| 2 | want_admire_nature/want_organize_home | 审美≥6 / 自律≥6 |
+| 1 | want_wander | 疲劳<6且饥饿≤6 |
+| 0 | want_idle(兜底) | 无条件 |
 
 ---
 
-## 动作冲突处理
+## 动作库（14个）
 
-当多个NPC同时想获取同一物品时：
+`action_sleep`, `action_eat`, `action_rest`, `action_sunbathe`, `action_wander`, `action_greet`, `action_搭讪`, `action_送礼`, `action_工作`, `action_购物`, `action_分享信息`, `action_seek_shelter`, `action_逃避`, `action_报复`
 
-1. **先到先得**：先执行拾取动作的NPC获得物品
-2. **近距离争夺**：如果两个NPC距离目标都很近，可能触发争夺
-3. **协商或战斗**：争夺不下时，根据性格决定协商或战斗
+---
 
-```python
-def 处理冲突(npc1, npc2, 目标物品):
-    if 距离(npc1.坐标, 目标物品.坐标) < 3 and 距离(npc2.坐标, 目标物品.坐标) < 3:
-        if npc1.好感度.get(npc2.角色id, 0) > 50:
-            return "协商"
-        else:
-            return "战斗"
-    else:
-        return "先到先得"
-```
+## 弹性性格
+
+动作完成时触发性格变化（定义在 `Brains_Library.json` 的 `性格弹性系统.变化规则`）：
+
+| 事件 | 性格变化 |
+|------|---------|
+| 被拒绝 | 乐观-0.03, 社交欲-0.02 |
+| 被接受 | 乐观+0.02, 社交欲+0.01 |
+| 成功送礼 | 乐观+0.05, 大方+0.02 |
+| 放弃追求 | 乐观-0.05, 意志力-0.03 |
+| 完成工作 | 勤奋+0.02 |
+| 长期闲逛 | 勤奋-0.01 |
+
+每天凌晨性格向中性值(5)回弹一步（速率0.01）。
 
 ---
 
 ## 扩展预留
 
-- [ ] 动作队列系统
-- [ ] 动作打断机制
-- [ ] 复合动作（如：移动+拾取）
-- [ ] 动作优先级覆盖
+- [x] 动作效果落地（state_change）
+- [x] 弹性性格编码
+- [x] 好感度更新
+- [x] 知识图谱传递
+- [ ] 动作冲突处理
+- [ ] LLM接管（预留接口）
 
 ---
 
-*版本: 1.0*
-*最后更新: 2026-05-11*
+*版本: 2.0*
+*最后更新: 2026-05-13*

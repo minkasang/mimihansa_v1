@@ -1,0 +1,191 @@
+{
+  "_说明": "动作与规则执行库 - 定义每个动作的指令模块组合序列。新增动作只需在此加一条JSON",
+  "_版本": "1.0",
+  "_使用方式": "每条动作 = 一条指令序列。引擎按顺序执行指令，像乐高积木一样自由组合",
+
+  "动作定义": [
+    {
+      "动作id": "action_sunbathe",
+      "名称": "晒太阳",
+      "描述": "在喜欢的地方站着或发呆，缓慢提升心情",
+      "触发性格倾向": { "乐观": [">", 3], "活力": [">", 3] },
+      "指令序列": [
+        { "module": "move_in_area", "params": { "center": "$家坐标", "radius": 3, "min_stay": 3000, "max_stay": 8000 } },
+        { "module": "play_animation", "params": { "animation": "sit", "duration": 5000 } },
+        { "module": "wait", "params": { "duration": 3000 } },
+        { "module": "set_state", "params": { "key": "开心", "value": 1, "operation": "add" } }
+      ],
+      "效果": { "开心": "+1", "疲劳": "-0.5" },
+      "可被打断": true,
+      "中断类型": ["生存威胁", "高魅力感知"]
+    },
+
+    {
+      "动作id": "action_sleep",
+      "名称": "睡觉",
+      "描述": "在家里或安全地方睡觉恢复精力",
+      "触发性格倾向": {},
+      "指令序列": [
+        { "module": "move_to", "params": { "target": "$家坐标" } },
+        { "module": "play_animation", "params": { "animation": "sleep", "duration": -1 } },
+        { "module": "wait", "params": { "duration": 5000 } },
+        { "module": "set_state", "params": { "key": "疲劳", "value": -3, "operation": "add" } }
+      ],
+      "效果": { "疲劳": "-3", "精力": "+5" },
+      "可被打断": true,
+      "中断类型": ["生存威胁"]
+    },
+
+    {
+      "动作id": "action_eat",
+      "名称": "吃东西",
+      "描述": "消耗背包里的食物降低饥饿度",
+      "触发性格倾向": {},
+      "所需物品": { "标签": ["食物"], "数量": 1 },
+      "指令序列": [
+        { "module": "set_state", "params": { "key": "当前动作", "value": "eating" } },
+        { "module": "wait", "params": { "duration": 2000 } },
+        { "module": "set_state", "params": { "key": "饥饿", "value": -4, "operation": "add" } }
+      ],
+      "效果": { "饥饿": "-4", "开心": "+1" },
+      "可被打断": true
+    },
+
+    {
+      "动作id": "action_rest",
+      "名称": "休息",
+      "描述": "原地休息恢复体力",
+      "指令序列": [
+        { "module": "play_animation", "params": { "animation": "sit", "duration": 4000 } },
+        { "module": "wait", "params": { "duration": 3000 } },
+        { "module": "set_state", "params": { "key": "疲劳", "value": -2, "operation": "add" } }
+      ],
+      "效果": { "疲劳": "-2" }
+    },
+
+    {
+      "动作id": "action_wander",
+      "名称": "闲逛",
+      "描述": "无目的地随机走动",
+      "指令序列": [
+        { "module": "move_in_area", "params": { "center": "$当前位置", "radius": 8, "min_stay": 2000, "max_stay": 5000 } }
+      ],
+      "效果": { "开心": "+0.5" }
+    },
+
+    {
+      "动作id": "action_greet",
+      "名称": "打招呼",
+      "描述": "向附近的NPC打招呼",
+      "触发性格倾向": { "社交欲": [">=", 4] },
+      "指令序列": [
+        { "module": "move_to", "params": { "target": "$目标位置" } },
+        { "module": "look_at", "params": { "target": "$目标NPC" } },
+        { "module": "say_from_template", "params": { "template_id": "greeting_afternoon", "duration": 3000 } }
+      ],
+      "效果": { "社交值": "+10" }
+    },
+
+    {
+      "动作id": "action_搭讪",
+      "名称": "搭讪",
+      "描述": "好色的人看到高颜值异性时主动攀谈",
+      "触发性格倾向": { "好色": [">=", 5], "社交欲": [">=", 4] },
+      "指令序列": [
+        { "module": "move_to", "params": { "target": "$目标位置" } },
+        { "module": "look_at", "params": { "target": "$目标NPC" } },
+        { "module": "say", "params": { "text": "你好啊，今天天气不错！", "type": "speak", "duration": 3000 } },
+        { "module": "wait", "params": { "duration": 2000 } },
+        { "module": "say", "params": { "text": "能认识一下吗？", "type": "speak", "duration": 3000 } }
+      ],
+      "效果": { "社交值": "+15" },
+      "可被打断": true
+    },
+
+    {
+      "动作id": "action_送礼",
+      "名称": "送礼",
+      "描述": "给目标人物送礼物。智力高先打听喜好，智力低直接选喜欢的物品送",
+      "触发性格倾向": { "大方": [">=", 4], "乐观": [">=", 5] },
+      "指令序列": [
+        { "module": "move_to", "params": { "target": "$目标位置" } },
+        { "module": "look_at", "params": { "target": "$目标NPC" } },
+        { "module": "say", "params": { "text": "这是我送你的礼物！", "type": "speak", "duration": 4000 } }
+      ],
+      "前置步骤_获取礼物": {
+        "智力低策略": {
+          "条件": { "智商": ["<=", 4] },
+          "选礼逻辑": "选NPC自己喜欢的东西",
+          "指令序列": [
+            { "module": "move_to_building", "params": { "building_id": "fruit_shop" } },
+            { "module": "say", "params": { "text": "老板，来一个苹果！", "type": "speak", "duration": 3000 } },
+            { "module": "set_state", "params": { "key": "物品栏", "value": "苹果", "operation": "addItem" } },
+            { "module": "set_state", "params": { "key": "金钱", "value": -2, "operation": "add" } }
+          ]
+        },
+        "智力高策略": {
+          "条件": { "智商": [">", 4] },
+          "选礼逻辑": "先打听对方喜好再选",
+          "指令序列": [
+            { "module": "move_to", "params": { "target": "$目标NPC附近" } },
+            { "module": "say", "params": { "text": "请问你喜欢什么？", "type": "speak", "duration": 3000 } }
+          ]
+        }
+      },
+      "效果": { "好感度": "+10~50（取决于礼物价值）" }
+    },
+
+    {
+      "动作id": "action_工作",
+      "名称": "工作",
+      "描述": "去农田或打工地点干活",
+      "触发性格倾向": { "勤奋": [">=", 4] },
+      "指令序列": [
+        { "module": "move_to", "params": { "target": "$工作地点" } },
+        { "module": "play_animation", "params": { "animation": "sit", "duration": 3000 } },
+        { "module": "say_from_template", "params": { "template_id": "work_farm", "duration": 3000 } },
+        { "module": "wait", "params": { "duration": 5000 } }
+      ],
+      "效果": { "金钱": "+15", "疲劳": "+2" }
+    },
+
+    {
+      "动作id": "action_购物",
+      "名称": "购物",
+      "描述": "去商店买东西",
+      "触发性格倾向": { "贪婪": [">=", 4] },
+      "所需条件": { "金钱": [">", 50] },
+      "指令序列": [
+        { "module": "move_to_building", "params": { "building_id": "$目标商店" } },
+        { "module": "say", "params": { "text": "我想看看有什么好东西...", "type": "speak", "duration": 3000 } },
+        { "module": "wait", "params": { "duration": 3000 } }
+      ],
+      "效果": { "开心": "+2", "金钱": "根据购买" }
+    },
+
+    {
+      "动作id": "action_分享信息",
+      "名称": "分享见闻",
+      "描述": "把自己知道的事情告诉周围的人",
+      "触发性格倾向": { "善良": [">=", 4], "社交欲": [">=", 4] },
+      "指令序列": [
+        { "module": "move_to", "params": { "target": "$目标位置" } },
+        { "module": "look_at", "params": { "target": "$目标NPC" } },
+        { "module": "say", "params": { "text": "我听说了一些有趣的事情！", "type": "speak", "duration": 3500 } }
+      ],
+      "效果": { "社交值": "+8" }
+    },
+
+    {
+      "动作id": "action_seek_shelter",
+      "名称": "找地方躲避",
+      "描述": "遇到暴雨或威胁时找最近的建筑躲避",
+      "优先级_系统": 10,
+      "指令序列": [
+        { "module": "move_to_building", "params": { "building_id": "$最近建筑" } },
+        { "module": "say", "params": { "text": "得找个地方躲一下！", "type": "thought", "duration": 2500 } }
+      ],
+      "效果": {}
+    }
+  ]
+}
