@@ -1,9 +1,11 @@
 /**
  * 欲望计算器 - 从 Desires_Library.json 加载欲望定义
  * 根据NPC当前状态 + 环境 + 性格，计算激活的欲望列表
+ *
+ * v1.1 更新：支持 ExtendedContext（时间、感知、路径距离等扩展上下文）
  */
 
-import { ConditionEvaluator, type Condition } from "./ConditionEvaluator";
+import { ConditionEvaluator, type Condition, type ExtendedContext } from "./ConditionEvaluator";
 import desiresRaw from "../../../../data/libraries/Desires_Library.json";
 
 // 欲望库JSON结构
@@ -41,7 +43,7 @@ export interface ActiveDesire {
   目标选择?: string;
 }
 
-// NPC运行时上下文
+// NPC运行时上下文（v1.1 扩展）
 export interface NpcContext {
   性格: Record<string, number>;
   生理状态: Record<string, number>;
@@ -50,12 +52,20 @@ export interface NpcContext {
   记忆标签: string[];
   金钱: number;
   物品栏: any[] | null;
+  家坐标: [number, number] | null;
+  标签: string[];
+  社会关系?: Record<string, any>;
   感知: {
     附近有NPC: boolean;
     看到高颜值NPC: boolean;
     看到有趣目标: boolean;
-    感知到的NPC: Array<{ id: string; 颜值?: number }>;
+    感知到的NPC: Array<{ id: string; 颜值?: number; 类型?: string }>;
   };
+
+  // v1.1 新增：扩展上下文（可选）
+  _worldTime?: ExtendedContext["_worldTime"];
+  _perception?: ExtendedContext["_perception"];
+  _pathDistance?: ExtendedContext["_pathDistance"];
 }
 
 export class DesireEvaluator {
@@ -68,13 +78,15 @@ export class DesireEvaluator {
 
   /**
    * 计算NPC当前激活的欲望列表（按优先级从高到低排序）
+   *
+   * v1.1：构建 ExtendedContext 以支持新操作符（季节、白天黑夜、标签、物品栏等）
    */
   evaluate(npcContext: NpcContext): ActiveDesire[] {
     const activeDesires: ActiveDesire[] = [];
 
     for (const def of this.library.欲望定义) {
-      // 构建上下文
-      const context: Record<string, any> = {
+      // 构建扩展上下文（v1.1）
+      const context: ExtendedContext = {
         性格: npcContext.性格,
         生理状态: npcContext.生理状态,
         当前动作: npcContext.当前动作,
@@ -82,7 +94,15 @@ export class DesireEvaluator {
         记忆标签: npcContext.记忆标签,
         金钱: npcContext.金钱,
         物品栏: npcContext.物品栏,
+        家坐标: npcContext.家坐标,
+        标签: npcContext.标签,
+        社会关系: npcContext.社会关系,
         感知: npcContext.感知,
+
+        // 注入扩展上下文
+        _worldTime: npcContext._worldTime,
+        _perception: npcContext._perception,
+        _pathDistance: npcContext._pathDistance,
       };
 
       // 检查触发条件

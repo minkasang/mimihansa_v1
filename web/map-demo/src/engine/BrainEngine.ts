@@ -293,11 +293,13 @@ export class BrainEngine {
       记忆标签: npcState.记忆标签 || [],
       金钱: npcState.金钱 || 0,
       物品栏: npcState.物品栏,
+      家坐标: (npcState as any).家坐标 || null,
+      标签: (npcState as any).标签 || [],
       感知: {
         附近有NPC: perception.visual.length > 0,
         看到高颜值NPC: perception.visual.some(v => (v.颜值 || 5) >= 7),
         看到有趣目标: perception.visual.length > 0,
-        感知到的NPC: perception.visual.map(v => ({ id: v.id, 颜值: v.颜值 })),
+        感知到的NPC: perception.visual.map(v => ({ id: v.id, 颜值: v.颜值, 类型: v.类型 })),
       },
     };
   }

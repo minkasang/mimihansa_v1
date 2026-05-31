@@ -40,6 +40,21 @@ function hash2D(x: number, y: number): number {
   return n - Math.floor(n);
 }
 
+const ITEM_DEFINITIONS: Record<string, { 物品id: string; 名称: string; 类型: string; 标签: string[] }> = {
+  "野果": { 物品id: "item_forage_fruit", 名称: "野果", 类型: "食物", 标签: ["食物", "可食用", "自然"] },
+  "烤肉": { 物品id: "item_cooked_meat", 名称: "烤肉", 类型: "食物", 标签: ["食物", "可食用", "熟食"] },
+  "生肉": { 物品id: "item_raw_meat", 名称: "生肉", 类型: "食材", 标签: ["生肉", "食材"] },
+  "木材": { 物品id: "item_wood", 名称: "木材", 类型: "材料", 标签: ["木材", "材料", "自然"] },
+  "石头": { 物品id: "item_stone", 名称: "石头", 类型: "材料", 标签: ["石头", "材料", "自然"] },
+  "石刀": { 物品id: "item_stone_knife", 名称: "石刀", 类型: "工具", 标签: ["工具", "武器", "石制"] },
+  "火把": { 物品id: "item_torch", 名称: "火把", 类型: "工具", 标签: ["照明", "工具"] },
+  "苹果": { 物品id: "item_apple", 名称: "苹果", 类型: "食物", 标签: ["食物", "可食用", "水果"] },
+};
+
+function getOrCreateItemDef(itemName: string): { 物品id: string; 名称: string; 类型: string; 标签: string[] } {
+  return ITEM_DEFINITIONS[itemName] || { 物品id: "item_" + itemName, 名称: itemName, 类型: "杂项", 标签: [] };
+}
+
 // NPC数据由NPCManager从 npc/ 文件夹自动加载
 
 // ==================== NPC类 ====================
@@ -52,6 +67,7 @@ class Npc {
   perceptionResult: PerceptionResult | null = null;
   isShopOpen = false; lastScriptExecution = 0; currentScriptAction: string | null = null;
   brainDebug: any = null;
+  _lastInteractTarget: string | null = null;
   private pathQueue: [number, number][] = [];
 
   constructor(public data: NpcDefinition, private engine: BrainDecisionEngine, private brainEngine: BrainEngine, private pathFinder: PathFinder) {
@@ -311,15 +327,16 @@ class Npc {
 
     if (!key) return;
 
-    // 当前动作 → animState
     if (key === "当前动作") {
-      if (value === "eating" || value === "sleeping" || value === "idle" || value === "walk") {
+      if (value === "eating" || value === "sleeping" || value === "idle" || value === "walk"
+        || value === "drinking" || value === "foraging" || value === "collecting_wood"
+        || value === "collecting_stone" || value === "building" || value === "making_fire"
+        || value === "crafting" || value === "hunting" || value === "cooking") {
         this.animState = value as AnimationState;
       }
       return;
     }
 
-    // 金钱
     if (key === "金钱") {
       const raw = this.data.rawData || {};
       const current = (raw.金钱 || 0) as number;
@@ -331,56 +348,127 @@ class Npc {
       return;
     }
 
-    // 物品栏 addItem / removeItem
     if (key === "物品栏") {
       const raw = this.data.rawData || {};
-      const items = raw.物品栏 || [];
+      if (!raw.物品栏) raw.物品栏 = [];
+      const items = raw.物品栏 as any[];
       if (operation === "addItem") {
-        const existing = items.find(i => i.名称 === value);
+        const itemName = String(value);
+        const itemDef = getOrCreateItemDef(itemName);
+        const existing = items.find((i: any) => i.名称 === itemName);
         if (existing) {
           existing.数量 = (existing.数量 || 1) + 1;
         } else {
-          items.push({ 物品id: "generated_" + value, 名称: value, 数量: 1, 类型: "杂项" });
+          items.push({ ...itemDef, 数量: 1 });
         }
         raw.物品栏 = items;
       } else if (operation === "removeItem") {
-        raw.物品栏 = items.filter(i => i.名称 !== value);
+        const itemName = String(value);
+        const removeCount = Number(data.数量) || 1;
+        const existing = items.find((i: any) => i.名称 === itemName);
+        if (existing) {
+          existing.数量 = (existing.数量 || 1) - removeCount;
+          if (existing.数量 <= 0) {
+            raw.物品栏 = items.filter((i: any) => i.名称 !== itemName);
+          }
+        }
       }
       return;
     }
 
-    // 生理状态 (饥饿/疲劳/开心/愤怒/生病/精力 等)
-    const state = this.data.state;
-    if (state && key in state) {
+    if (key === "家坐标") {
+      const raw = this.data.rawData || {};
+      if (operation === "set") {
+        if (value === "$当前位置") {
+          raw.家坐标 = [Math.floor(this.x), Math.floor(this.y)];
+        } else if (Array.isArray(value) && value.length >= 2) {
+          raw.家坐标 = [Number(value[0]), Number(value[1])];
+        }
+      }
+      return;
+    }
+
+    if (key === "标签") {
+      const raw = this.data.rawData || {};
+      if (!raw.标签) raw.标签 = [];
       if (operation === "add") {
-        state[key] = Math.max(0, Math.min(10, (state[key] || 0) + Number(value)));
-      } else {
-        state[key] = Math.max(0, Math.min(10, Number(value)));
+        const tags = Array.isArray(value) ? value : [value];
+        for (const tag of tags) {
+          if (!raw.标签.includes(tag)) raw.标签.push(tag);
+        }
+      } else if (operation === "remove") {
+        const tags = Array.isArray(value) ? value : [value];
+        raw.标签 = raw.标签.filter((t: string) => !tags.includes(t));
       }
       return;
     }
 
-    // dot-path 兜底: "生理状态.饥饿" → state.饥饿
-    if (key.includes(".")) {
-      const parts = key.split(".");
-      if (parts[0] === "生理状态" && state && parts[1] in state) {
-        if (operation === "add") {
-          state[parts[1]] = Math.max(0, Math.min(10, (state[parts[1]] || 0) + Number(value)));
+    if (key === "好感度") {
+      const raw = this.data.rawData || {};
+      if (!raw.好感度) raw.好感度 = {};
+      const targetId = data.target || this._lastInteractTarget;
+      if (targetId) {
+        const current = raw.好感度[targetId] || 0;
+        if (operation === "add" || String(value).startsWith("+")) {
+          raw.好感度[targetId] = Math.max(-100, Math.min(100, current + Number(String(value).replace("+", ""))));
         } else {
-          state[parts[1]] = Math.max(0, Math.min(10, Number(value)));
+          raw.好感度[targetId] = Number(value);
+        }
+      }
+      return;
+    }
+
+    const state = this.data.state;
+    if (state) {
+      if (key in state) {
+        if (operation === "add") {
+          state[key] = Math.max(0, Math.min(10, (state[key] || 0) + Number(value)));
+        } else {
+          state[key] = Math.max(0, Math.min(10, Number(value)));
+        }
+        return;
+      }
+
+      if (key === "口渴" || key === "性欲") {
+        if (operation === "add") {
+          state[key] = Math.max(0, Math.min(key === "性欲" ? 100 : 10, (state[key] || 0) + Number(value)));
+        } else {
+          state[key] = Math.max(0, Math.min(key === "性欲" ? 100 : 10, Number(value)));
         }
         return;
       }
     }
 
-    // 记忆标签
+    if (key.includes(".")) {
+      const parts = key.split(".");
+      if (parts[0] === "生理状态" && state) {
+        const stateKey = parts[1];
+        if (operation === "add") {
+          state[stateKey] = Math.max(0, Math.min(stateKey === "性欲" ? 100 : 10, (state[stateKey] || 0) + Number(value)));
+        } else {
+          state[stateKey] = Math.max(0, Math.min(stateKey === "性欲" ? 100 : 10, Number(value)));
+        }
+        return;
+      }
+      if (parts[0] === "技能") {
+        const raw = this.data.rawData || {};
+        if (!raw.技能) raw.技能 = {};
+        if (operation === "add") {
+          raw.技能[parts[1]] = Math.max(0, Math.min(100, (raw.技能[parts[1]] || 0) + Number(value)));
+        } else {
+          raw.技能[parts[1]] = Number(value);
+        }
+        return;
+      }
+    }
+
     if (key === "记忆标签") {
       const raw = this.data.rawData || {};
       if (!raw.记忆标签) raw.记忆标签 = [];
       if (operation === "add" && !raw.记忆标签.includes(value)) {
         raw.记忆标签.push(value);
       } else if (operation === "remove") {
-        raw.记忆标签 = raw.记忆标签.filter(t => t !== value);
+        raw.记忆标签 = raw.记忆标签.filter((t: string) => t !== value);
       }
       return;
     }

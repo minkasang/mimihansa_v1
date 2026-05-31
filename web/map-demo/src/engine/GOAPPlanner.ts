@@ -35,22 +35,22 @@ export class GOAPPlanner {
 
   plan(goal: Goal, npcState: NpcState): Instruction[][] {
     switch (goal.目标类型) {
-      case "休息":
-        return this.planRest(goal, npcState);
-      case "吃东西":
-        return this.planEat(goal, npcState);
-      case "休闲":
-        return this.planLeisure(goal, npcState);
-      case "社交":
-        return this.planSocial(goal, npcState);
-      case "送礼":
-        return this.planGiveGift(goal, npcState);
-      case "工作":
-        return this.planWork(goal, npcState);
-      case "购物":
-        return this.planShopping(goal, npcState);
-      default:
-        return this.planDefault(goal, npcState);
+      case "休息":    return this.planRest(goal, npcState);
+      case "吃东西":  return this.planEat(goal, npcState);
+      case "休闲":    return this.planLeisure(goal, npcState);
+      case "社交":    return this.planSocial(goal, npcState);
+      case "送礼":    return this.planGiveGift(goal, npcState);
+      case "工作":    return this.planWork(goal, npcState);
+      case "购物":    return this.planShopping(goal, npcState);
+      case "获取食物": return this.planFromActionLib(goal, npcState);
+      case "喝水":    return this.planFromActionLib(goal, npcState);
+      case "收集资源": return this.planFromActionLib(goal, npcState);
+      case "建造":    return this.planFromActionLib(goal, npcState);
+      case "生火":    return this.planFromActionLib(goal, npcState);
+      case "制作":    return this.planFromActionLib(goal, npcState);
+      case "狩猎":    return this.planFromActionLib(goal, npcState);
+      case "烹饪":    return this.planFromActionLib(goal, npcState);
+      default:        return this.planFromActionLib(goal, npcState);
     }
   }
 
@@ -61,7 +61,33 @@ export class GOAPPlanner {
       目标位置: goal.目标位置 || [npcState.x, npcState.y],
       目标NPC: goal.目标NPC || "",
       工作地点: npcState.知识库?.已知地点?.麦田 || npcState.家坐标 || [npcState.x, npcState.y],
+      最近森林: this.findNearestTerrain(npcState, "森林"),
+      最近山地: this.findNearestTerrain(npcState, "山地"),
+      最近水源: this.findNearestTerrain(npcState, "河流"),
+      最近火堆: [npcState.x, npcState.y],
+      猎物位置: goal.目标位置 || [npcState.x, npcState.y],
+      疲劳恢复值: npcState.家坐标 ? -3 : -1.5,
     };
+  }
+
+  private findNearestTerrain(npcState: NpcState, terrain: string): [number, number] {
+    const known = npcState.知识库?.已知地点;
+    if (known) {
+      for (const [name, data] of Object.entries(known)) {
+        if (name.includes(terrain) || (data as any)?.地形 === terrain) {
+          const coord = (data as any)?.坐标 || data;
+          if (Array.isArray(coord) && coord.length >= 2) {
+            return [Number(coord[0]), Number(coord[1])];
+          }
+        }
+      }
+    }
+    const offsets: Record<string, [number, number]> = {
+      "森林": [Math.max(0, npcState.x - 20), npcState.y],
+      "山地": [Math.min(99, npcState.x + 20), npcState.y],
+      "河流": [npcState.x, Math.max(0, npcState.y - 15)],
+    };
+    return offsets[terrain] || [npcState.x, npcState.y];
   }
 
   // ──── 休息 ────
@@ -173,7 +199,18 @@ export class GOAPPlanner {
     return [];
   }
 
-  // ──── 默认 ────
+  // ──── 通用：从ActionLibrary加载指令序列 ────
+  private planFromActionLib(goal: Goal, npcState: NpcState): Instruction[][] {
+    const vars = this.buildVars(goal, npcState);
+    const seq = this.actionLib.getInstructions(goal.动作id, vars);
+    if (seq.length > 0) return [seq];
+
+    return [[
+      { module: "move_in_area", params: { center: [npcState.x, npcState.y], radius: 5 } },
+    ]];
+  }
+
+  // ──── 默认（保留兼容） ────
   private planDefault(_goal: Goal, npcState: NpcState): Instruction[][] {
     return [[
       { module: "move_in_area", params: { center: [npcState.x, npcState.y], radius: 5 } },

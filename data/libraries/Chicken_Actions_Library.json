@@ -1,0 +1,10 @@
+{
+  "_说明":"鸡的动作库。",
+  "动作列表":[
+    {"动作id":"action_flee","名称":"扑腾逃跑","指令序列":[{"module":"find_escape_dir","params":{"away_from":"$威胁"}},{"module":"sprint","params":{"direction":"$逃跑方向","max_ticks":20}},{"module":"hide","params":{"duration":200}}]},
+    {"动作id":"action_peck","名称":"啄食","指令序列":[{"module":"random_walk","params":{"radius":5}},{"module":"graze","params":{"duration":30}}],"效果":{"饥饿":-3}},
+    {"动作id":"action_go_to_water","名称":"喝水","指令序列":[{"module":"move_to","params":{"target":"$NPC.知识库.水源位置"}},{"module":"drink","params":{}}],"效果":{"口渴":-5}},
+    {"动作id":"action_sleep","名称":"睡觉","指令序列":[{"module":"move_to","params":{"target":"$窝位置"}},{"module":"sleep","params":{"duration":2000}}],"效果":{"疲劳":-4}},
+    {"动作id":"action_idle_peck","名称":"踱步啄地","指令序列":[{"module":"random_walk","params":{"radius":3}},{"module":"graze","params":{"duration":10}}]}
+  ]
+}

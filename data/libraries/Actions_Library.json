@@ -23,15 +23,30 @@
     {
       "动作id": "action_sleep",
       "名称": "睡觉",
-      "描述": "在家里或安全地方睡觉恢复精力",
+      "描述": "在家里或安全地方睡觉恢复精力。无家时在原地睡觉（效果减半）",
       "触发性格倾向": {},
       "指令序列": [
-        { "module": "move_to", "params": { "target": "$家坐标" } },
+        { "module": "move_to", "params": { "target": "$家坐标", "fallback": "原地" } },
         { "module": "play_animation", "params": { "animation": "sleep", "duration": -1 } },
         { "module": "wait", "params": { "duration": 5000 } },
-        { "module": "set_state", "params": { "key": "疲劳", "value": -3, "operation": "add" } }
+        { "module": "set_state", "params": { "key": "疲劳", "value": "$疲劳恢复值", "operation": "add" } }
       ],
-      "效果": { "疲劳": "-3", "精力": "+5" },
+      "效果": { "疲劳": "-3", "精力": "+30" },
+      "可被打断": true,
+      "中断类型": ["生存威胁"]
+    },
+
+    {
+      "动作id": "action_sleep_no_home",
+      "名称": "原地睡觉",
+      "描述": "没有家时在原地睡觉，恢复效果减半",
+      "触发性格倾向": {},
+      "指令序列": [
+        { "module": "play_animation", "params": { "animation": "sleep", "duration": -1 } },
+        { "module": "wait", "params": { "duration": 5000 } },
+        { "module": "set_state", "params": { "key": "疲劳", "value": -1.5, "operation": "add" } }
+      ],
+      "效果": { "疲劳": "-1.5", "精力": "+15" },
       "可被打断": true,
       "中断类型": ["生存威胁"]
     },
@@ -83,7 +98,7 @@
         { "module": "look_at", "params": { "target": "$目标NPC" } },
         { "module": "say_from_template", "params": { "template_id": "greeting_afternoon", "duration": 3000 } }
       ],
-      "效果": { "社交值": "+10" }
+      "效果": { "好感度": "+10" }
     },
 
     {
@@ -98,7 +113,7 @@
         { "module": "wait", "params": { "duration": 2000 } },
         { "module": "say", "params": { "text": "能认识一下吗？", "type": "speak", "duration": 3000 } }
       ],
-      "效果": { "社交值": "+15" },
+      "效果": { "好感度": "+15" },
       "可被打断": true
     },
 
@@ -173,7 +188,7 @@
         { "module": "look_at", "params": { "target": "$目标NPC" } },
         { "module": "say", "params": { "text": "我听说了一些有趣的事情！", "type": "speak", "duration": 3500 } }
       ],
-      "效果": { "社交值": "+8" }
+      "效果": { "好感度": "+8" }
     },
 
     {
@@ -186,6 +201,148 @@
         { "module": "say", "params": { "text": "得找个地方躲一下！", "type": "thought", "duration": 2500 } }
       ],
       "效果": {}
+    },
+
+    {
+      "动作id": "action_drink",
+      "名称": "喝水",
+      "描述": "找到水源并喝水降低口渴度",
+      "触发性格倾向": {},
+      "指令序列": [
+        { "module": "move_to", "params": { "target": "$最近水源" } },
+        { "module": "set_state", "params": { "key": "当前动作", "value": "drinking" } },
+        { "module": "wait", "params": { "duration": 2000 } },
+        { "module": "set_state", "params": { "key": "口渴", "value": -5, "operation": "add" } }
+      ],
+      "效果": { "口渴": "-5" },
+      "可被打断": true
+    },
+
+    {
+      "动作id": "action_collect_wood",
+      "名称": "收集木材",
+      "描述": "在森林区域收集木材",
+      "触发性格倾向": {},
+      "指令序列": [
+        { "module": "move_to", "params": { "target": "$最近森林" } },
+        { "module": "set_state", "params": { "key": "当前动作", "value": "collecting_wood" } },
+        { "module": "wait", "params": { "duration": 3000 } },
+        { "module": "set_state", "params": { "key": "物品栏", "value": "木材", "operation": "addItem" } }
+      ],
+      "效果": { "物品栏": "+木材", "疲劳": "+1" },
+      "可被打断": true
+    },
+
+    {
+      "动作id": "action_collect_stone",
+      "名称": "收集石头",
+      "描述": "在山地区域收集石头",
+      "触发性格倾向": {},
+      "指令序列": [
+        { "module": "move_to", "params": { "target": "$最近山地" } },
+        { "module": "set_state", "params": { "key": "当前动作", "value": "collecting_stone" } },
+        { "module": "wait", "params": { "duration": 3000 } },
+        { "module": "set_state", "params": { "key": "物品栏", "value": "石头", "operation": "addItem" } }
+      ],
+      "效果": { "物品栏": "+石头", "疲劳": "+1" },
+      "可被打断": true
+    },
+
+    {
+      "动作id": "action_forage",
+      "名称": "采摘野果",
+      "描述": "在森林区域采摘野果",
+      "触发性格倾向": {},
+      "指令序列": [
+        { "module": "move_to", "params": { "target": "$最近森林" } },
+        { "module": "set_state", "params": { "key": "当前动作", "value": "foraging" } },
+        { "module": "wait", "params": { "duration": 3000 } },
+        { "module": "set_state", "params": { "key": "物品栏", "value": "野果", "operation": "addItem" } }
+      ],
+      "效果": { "物品栏": "+野果" },
+      "可被打断": true
+    },
+
+    {
+      "动作id": "action_build_shelter",
+      "名称": "搭建庇护所",
+      "描述": "收集材料搭建简易庇护所。需要5个木材，消耗后建成草棚",
+      "触发性格倾向": {},
+      "所需物品": { "标签": ["木材"], "数量": 5 },
+      "指令序列": [
+        { "module": "set_state", "params": { "key": "当前动作", "value": "building" } },
+        { "module": "wait", "params": { "duration": 10000 } },
+        { "module": "set_state", "params": { "key": "物品栏", "value": "木材", "operation": "removeItem", "数量": 5 } },
+        { "module": "set_state", "params": { "key": "家坐标", "value": "$当前位置", "operation": "set" } }
+      ],
+      "效果": { "物品栏": "-5木材", "家坐标": "$当前位置", "疲劳": "+2" },
+      "可被打断": true
+    },
+
+    {
+      "动作id": "action_make_fire",
+      "名称": "生火",
+      "描述": "用木材生火。需要3个木材，消耗后获得火把",
+      "触发性格倾向": {},
+      "所需物品": { "标签": ["木材"], "数量": 3 },
+      "指令序列": [
+        { "module": "set_state", "params": { "key": "当前动作", "value": "making_fire" } },
+        { "module": "wait", "params": { "duration": 5000 } },
+        { "module": "set_state", "params": { "key": "物品栏", "value": "木材", "operation": "removeItem", "数量": 3 } },
+        { "module": "set_state", "params": { "key": "物品栏", "value": "火把", "operation": "addItem" } }
+      ],
+      "效果": { "物品栏": "-3木材", "物品栏": "+火把" },
+      "可被打断": true
+    },
+
+    {
+      "动作id": "action_craft_tool",
+      "名称": "制作工具",
+      "描述": "用石头和木材制作石刀。各消耗1个，获得石刀",
+      "触发性格倾向": {},
+      "所需物品": { "标签": ["石头", "木材"], "数量": 1 },
+      "指令序列": [
+        { "module": "set_state", "params": { "key": "当前动作", "value": "crafting" } },
+        { "module": "wait", "params": { "duration": 8000 } },
+        { "module": "set_state", "params": { "key": "物品栏", "value": "石头", "operation": "removeItem", "数量": 1 } },
+        { "module": "set_state", "params": { "key": "物品栏", "value": "木材", "operation": "removeItem", "数量": 1 } },
+        { "module": "set_state", "params": { "key": "物品栏", "value": "石刀", "operation": "addItem" } }
+      ],
+      "效果": { "物品栏": "-1石头", "物品栏": "-1木材", "物品栏": "+石刀", "技能.制作": "+0.1" },
+      "可被打断": true
+    },
+
+    {
+      "动作id": "action_hunt",
+      "名称": "狩猎",
+      "描述": "追踪并狩猎野生动物。需要武器",
+      "触发性格倾向": { "攻击性": [">=", 4] },
+      "所需物品": { "标签": ["武器"], "数量": 1 },
+      "指令序列": [
+        { "module": "move_to", "params": { "target": "$猎物位置" } },
+        { "module": "set_state", "params": { "key": "当前动作", "value": "hunting" } },
+        { "module": "wait", "params": { "duration": 6000 } },
+        { "module": "set_state", "params": { "key": "物品栏", "value": "生肉", "operation": "addItem" } }
+      ],
+      "效果": { "物品栏": "+生肉", "疲劳": "+2" },
+      "可被打断": true
+    },
+
+    {
+      "动作id": "action_cook",
+      "名称": "烹饪",
+      "描述": "在火堆上烹饪食物。消耗1个生肉，获得1个烤肉",
+      "触发性格倾向": {},
+      "所需物品": { "标签": ["生肉"], "数量": 1 },
+      "指令序列": [
+        { "module": "move_to", "params": { "target": "$最近火堆" } },
+        { "module": "set_state", "params": { "key": "当前动作", "value": "cooking" } },
+        { "module": "wait", "params": { "duration": 4000 } },
+        { "module": "set_state", "params": { "key": "物品栏", "value": "生肉", "operation": "removeItem", "数量": 1 } },
+        { "module": "set_state", "params": { "key": "物品栏", "value": "烤肉", "operation": "addItem" } }
+      ],
+      "效果": { "物品栏": "-1生肉", "物品栏": "+烤肉" },
+      "可被打断": true
     }
   ]
 }

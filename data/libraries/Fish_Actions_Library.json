@@ -1,0 +1,9 @@
+{
+  "_说明":"鱼的动作库。全部在水中执行。",
+  "动作列表":[
+    {"动作id":"action_flee_shoal","名称":"逃跑(鱼群)","指令序列":[{"module":"find_escape_dir","params":{"away_from":"$震动来源"}},{"module":"sprint","params":{"direction":"$逃跑方向","max_ticks":30}}]},
+    {"动作id":"action_eat_water","名称":"吃浮游","指令序列":[{"module":"feed_in_water","params":{"duration":20}}],"效果":{"饥饿":-3}},
+    {"动作id":"action_join_shoal","名称":"加入鱼群","指令序列":[{"module":"move_to","params":{"target":"$最近同种鱼"}},{"module":"follow_target","params":{"target":"$鱼群中心","distance":2}}]},
+    {"动作id":"action_swim_random","名称":"游荡","指令序列":[{"module":"random_walk_water","params":{"radius":8}}]}
+  ]
+}

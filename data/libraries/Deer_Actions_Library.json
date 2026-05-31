@@ -1,0 +1,53 @@
+{
+  "_说明": "鹿的动作库。复用人类 ModuleRegistry 执行。",
+  "_引用": "鹿行为规范.md §五/六",
+  "动作列表": [
+    {
+      "动作id": "action_flee_herd",
+      "名称": "群跑逃跑",
+      "指令序列": [
+        { "module": "find_escape_dir", "params": { "away_from": "$威胁来源" } },
+        { "module": "sprint", "params": { "direction": "$逃跑方向", "max_ticks": 100 } },
+        { "module": "random_turn", "params": { "probability": 0.3, "after_ticks": 30 } },
+        { "module": "slow_down_and_watch", "params": { "警戒": true } }
+      ],
+      "效果": {}
+    },
+    {
+      "动作id": "action_graze",
+      "名称": "吃草",
+      "指令序列": [
+        { "module": "move_to_grass", "params": { "radius": 15 } },
+        { "module": "graze", "params": { "duration": 80 } }
+      ],
+      "效果": { "饥饿": -5 }
+    },
+    {
+      "动作id": "action_go_to_water",
+      "名称": "去喝水",
+      "指令序列": [
+        { "module": "move_to", "params": { "target": "$知识库.水源位置" } },
+        { "module": "drink", "params": {} }
+      ],
+      "效果": { "口渴": -5 }
+    },
+    {
+      "动作id": "action_sleep",
+      "名称": "睡觉",
+      "指令序列": [
+        { "module": "move_to", "params": { "target": "$最近树林或灌木丛" } },
+        { "module": "sleep", "params": { "duration": 2000, "浅睡": true } }
+      ],
+      "效果": { "疲劳": -4 }
+    },
+    {
+      "动作id": "action_graze_slow",
+      "名称": "慢速边走边吃",
+      "指令序列": [
+        { "module": "random_walk_slow", "params": { "radius": 10, "speed": 0.3 } },
+        { "module": "graze", "params": { "duration": 30 } }
+      ],
+      "效果": { "饥饿": -1 }
+    }
+  ]
+}

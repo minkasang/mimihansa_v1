@@ -1,0 +1,10 @@
+{
+  "_说明":"鹰的动作库。飞行双态。",
+  "动作列表":[
+    {"动作id":"action_eat","名称":"吃猎物","指令序列":[{"module":"consume_corpse","params":{"target":"$爪下猎物"}}],"效果":{"饥饿":-5}},
+    {"动作id":"action_dive_hunt","名称":"俯冲狩猎","指令序列":[{"module":"dive","params":{"target":"$地面猎物"}},{"module":"grab_prey","params":{"target":"$地面猎物"}},{"module":"fly_up","params":{"height":"高"}}]},
+    {"动作id":"action_sleep_perch","名称":"栖息睡觉","指令序列":[{"module":"fly_to_perch","params":{"target":"$最近高树或岩石"}},{"module":"sleep","params":{"duration":2000}}],"效果":{"疲劳":-4}},
+    {"动作id":"action_takeoff","名称":"起飞逃跑","指令序列":[{"module":"fly_up","params":{"height":"高"}},{"module":"fly_away","params":{"direction":"任意","distance":40}}]},
+    {"动作id":"action_soar","名称":"盘旋翱翔","指令序列":[{"module":"circle_over_map","params":{"radius":100,"speed":0.5}}]}
+  ]
+}

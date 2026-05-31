@@ -1,0 +1,124 @@
+{
+  "_说明": "狼的动作库。全部使用 ModuleRegistry 中的通用模块。",
+  "_引用": "狼群行为规范.md §六/七",
+  "动作列表": [
+    {
+      "动作id": "action_eat",
+      "名称": "吃尸体",
+      "指令序列": [
+        { "module": "move_to", "params": { "target": "$最近尸体", "distance": 1 } },
+        { "module": "consume_corpse", "params": { "target": "$最近尸体" } }
+      ],
+      "效果": { "饥饿": -6, "开心": 2 },
+      "前提": { "附近有": "动物尸体" }
+    },
+    {
+      "动作id": "action_hunt_pack",
+      "名称": "集体狩猎（首领导召）",
+      "指令序列": [
+        { "module": "produce_sound", "params": { "类型": "狼嚎", "内容": "狩猎集合", "半径": 50 } },
+        { "module": "wait_for_pack", "params": { "max_ticks": 600 } },
+        { "module": "spread_search", "params": { "间隔": 8 } },
+        { "module": "move_to", "params": { "target": "$猎物位置" } },
+        { "module": "encircle_target", "params": { "target": "$猎物" } },
+        { "module": "chase_and_attack", "params": { "target": "$猎物" } }
+      ],
+      "效果": {},
+      "前提": { "NPC.动物数据.角色": ["==", "首领"] }
+    },
+    {
+      "动作id": "action_hunt_join",
+      "名称": "响应狩猎召唤",
+      "指令序列": [
+        { "module": "move_to", "params": { "target": "$嚎叫来源" } },
+        { "module": "spread_search", "params": { "间隔": 8 } },
+        { "module": "move_to", "params": { "target": "$猎物位置" } },
+        { "module": "encircle_target", "params": { "target": "$猎物" } },
+        { "module": "chase_and_attack", "params": { "target": "$猎物" } }
+      ],
+      "效果": {},
+      "前提": { "NPC.动物数据.角色": ["!=", "首领"] }
+    },
+    {
+      "动作id": "action_go_to_water",
+      "名称": "去喝水",
+      "指令序列": [
+        { "module": "move_to", "params": { "target": "$NPC.知识库.水源位置" } },
+        { "module": "drink", "params": {} }
+      ],
+      "效果": { "口渴": -5 }
+    },
+    {
+      "动作id": "action_sleep",
+      "名称": "睡觉",
+      "指令序列": [
+        { "module": "move_to", "params": { "target": "$NPC.知识库.巢穴位置" } },
+        { "module": "sleep", "params": { "duration": 2000 } }
+      ],
+      "效果": { "疲劳": -4 }
+    },
+    {
+      "动作id": "action_howl",
+      "名称": "嚎叫",
+      "指令序列": [
+        { "module": "produce_sound", "params": { "类型": "狼嚎", "半径": 50 } }
+      ],
+      "效果": {}
+    },
+    {
+      "动作id": "action_follow",
+      "名称": "跟随首领",
+      "指令序列": [
+        { "module": "move_to", "params": { "target": "$首领位置", "distance": 4 } }
+      ],
+      "效果": {}
+    },
+    {
+      "动作id": "action_patrol",
+      "名称": "巡逻领地",
+      "指令序列": [
+        { "module": "move_along_border", "params": { "center": "$NPC.知识库.巢穴位置", "radius": 60 } },
+        { "module": "mark_territory", "params": {} }
+      ],
+      "效果": {}
+    },
+    {
+      "动作id": "action_wander",
+      "名称": "游荡",
+      "指令序列": [
+        { "module": "random_walk", "params": { "radius": 10 } }
+      ],
+      "效果": {}
+    },
+    {
+      "动作id": "action_nurse_pup",
+      "名称": "喂幼崽",
+      "指令序列": [
+        { "module": "move_to", "params": { "target": "$巢穴位置" } },
+        { "module": "feed_target", "params": { "target": "$幼崽" } }
+      ],
+      "效果": { "幼崽.饥饿": -5 },
+      "前提": { "NPC.动物数据.角色": ["==", "首领"] }
+    },
+    {
+      "动作id": "action_dominate",
+      "名称": "地位压制",
+      "指令序列": [
+        { "module": "move_to", "params": { "target": "$Omega", "distance": 1 } },
+        { "module": "nip_ear", "params": { "target": "$Omega" } }
+      ],
+      "效果": { "target.压力": 1 },
+      "前提": { "NPC.动物数据.角色": ["==", "首领"] }
+    },
+    {
+      "动作id": "action_submit",
+      "名称": "屈服示好",
+      "指令序列": [
+        { "module": "move_to", "params": { "target": "$首领", "distance": 1 } },
+        { "module": "lick_muzzle", "params": { "target": "$首领" } }
+      ],
+      "效果": { "首领.开心": 1, "自身.压力": -1 },
+      "前提": { "NPC.动物数据.角色": ["==", "Omega"] }
+    }
+  ]
+}

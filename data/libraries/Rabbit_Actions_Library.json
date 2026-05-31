@@ -1,0 +1,62 @@
+{
+  "_说明": "兔子的动作库。复用人类 ModuleRegistry 执行。全部使用标准字段路径。",
+  "_引用": "兔子行为规范.md §五/六",
+  "动作列表": [
+    {
+      "动作id": "action_flee",
+      "名称": "逃跑",
+      "指令序列": [
+        { "module": "find_escape_dir", "params": { "away_from": "$威胁来源" } },
+        { "module": "sprint", "params": { "direction": "$逃跑方向", "max_ticks": 40 } },
+        { "module": "move_to", "params": { "target": "$NPC.知识库.窝位置" } },
+        { "module": "hide", "params": { "duration": 200 } }
+      ],
+      "效果": {}
+    },
+    {
+      "动作id": "action_forage",
+      "名称": "吃草",
+      "指令序列": [
+        { "module": "move_to_grass", "params": { "radius": 10 } },
+        { "module": "graze", "params": { "duration": 50 } }
+      ],
+      "效果": { "饥饿": -4 }
+    },
+    {
+      "动作id": "action_go_to_water",
+      "名称": "去喝水",
+      "指令序列": [
+        { "module": "move_to", "params": { "target": "$NPC.知识库.水源位置" } },
+        { "module": "drink", "params": {} }
+      ],
+      "效果": { "口渴": -5 }
+    },
+    {
+      "动作id": "action_sleep",
+      "名称": "睡觉",
+      "指令序列": [
+        { "module": "move_to", "params": { "target": "$NPC.知识库.窝位置" } },
+        { "module": "sleep", "params": { "duration": 2000 } }
+      ],
+      "效果": { "疲劳": -4 }
+    },
+    {
+      "动作id": "action_hide",
+      "名称": "躲藏",
+      "指令序列": [
+        { "module": "move_to", "params": { "target": "$最近窝或灌木丛" } },
+        { "module": "hide_and_watch", "params": { "警戒": true } }
+      ],
+      "效果": {}
+    },
+    {
+      "动作id": "action_nurse_kits",
+      "名称": "喂幼崽",
+      "指令序列": [
+        { "module": "move_to", "params": { "target": "$NPC.知识库.窝位置" } },
+        { "module": "nurse_kits", "params": { "duration": 60 } }
+      ],
+      "效果": { "幼崽.饥饿": -3 }
+    }
+  ]
+}

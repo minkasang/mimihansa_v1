@@ -87,13 +87,21 @@ export class ActionLibrary {
   findActionsByTargetType(targetType: string, personality: Record<string, number>): ActionDef[] {
     // 目标类型 → 动作id 映射
     const typeToAction: Record<string, string[]> = {
-      "休息": ["action_sleep", "action_rest"],
-      "吃东西": ["action_eat"],
-      "休闲": ["action_sunbathe", "action_wander"],
-      "社交": ["action_greet", "action_搭讪", "action_分享信息"],
-      "送礼": ["action_送礼"],
-      "工作": ["action_工作"],
-      "购物": ["action_购物"],
+      "休息":    ["action_sleep", "action_sleep_no_home", "action_rest"],
+      "吃东西":  ["action_eat"],
+      "休闲":    ["action_sunbathe", "action_wander"],
+      "社交":    ["action_greet", "action_搭讪", "action_分享信息"],
+      "送礼":    ["action_送礼"],
+      "工作":    ["action_工作"],
+      "购物":    ["action_购物"],
+      "获取食物": ["action_forage"],
+      "喝水":    ["action_drink"],
+      "收集资源": ["action_collect_wood", "action_collect_stone"],
+      "建造":    ["action_build_shelter"],
+      "生火":    ["action_make_fire"],
+      "制作":    ["action_craft_tool"],
+      "狩猎":    ["action_hunt"],
+      "烹饪":    ["action_cook"],
     };
 
     const candidateIds = typeToAction[targetType] || [];

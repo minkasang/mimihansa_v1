@@ -1,0 +1,52 @@
+{
+  "_说明": "野猪的动作库。复用人类 ModuleRegistry 执行。",
+  "_引用": "野猪行为规范.md §五/六",
+  "动作列表": [
+    {
+      "动作id": "action_charge_attack",
+      "名称": "冲撞攻击",
+      "指令序列": [
+        { "module": "face_target", "params": { "target": "$威胁来源" } },
+        { "module": "charge", "params": { "direction": "前方", "distance": 4 } },
+        { "module": "tusk_attack", "params": { "target": "$威胁来源" } }
+      ],
+      "效果": {}
+    },
+    {
+      "动作id": "action_forage_omnivore",
+      "名称": "拱土找食物",
+      "指令序列": [
+        { "module": "move_to_ground", "params": { "radius": 10 } },
+        { "module": "root_for_food", "params": { "duration": 40 } }
+      ],
+      "效果": { "饥饿": -5 }
+    },
+    {
+      "动作id": "action_go_to_water",
+      "名称": "去喝水",
+      "指令序列": [
+        { "module": "move_to", "params": { "target": "$知识库.水源位置" } },
+        { "module": "drink", "params": {} }
+      ],
+      "效果": { "口渴": -5 }
+    },
+    {
+      "动作id": "action_sleep",
+      "名称": "睡觉",
+      "指令序列": [
+        { "module": "move_to", "params": { "target": "$最近灌木丛" } },
+        { "module": "sleep", "params": { "duration": 2000 } }
+      ],
+      "效果": { "疲劳": -4 }
+    },
+    {
+      "动作id": "action_wallow_or_roam",
+      "名称": "泥浴或游荡",
+      "指令序列": [
+        { "module": "move_to", "params": { "target": "$最近泥坑", "fallback": "游荡" } },
+        { "module": "wallow", "params": { "duration": 100 } }
+      ],
+      "效果": {}
+    }
+  ]
+}

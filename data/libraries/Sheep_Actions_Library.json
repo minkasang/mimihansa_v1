@@ -1,0 +1,10 @@
+{
+  "_说明":"羊的动作库。强从众性。",
+  "动作列表":[
+    {"动作id":"action_flee_herd","名称":"逃跑(羊群)","指令序列":[{"module":"find_escape_dir","params":{"away_from":"$威胁"}},{"module":"sprint","params":{"direction":"$逃跑方向","max_ticks":60}}]},
+    {"动作id":"action_graze","名称":"吃草","指令序列":[{"module":"move_to_grass","params":{"radius":10}},{"module":"graze","params":{"duration":50}}],"效果":{"饥饿":-4}},
+    {"动作id":"action_go_to_water","名称":"喝水","指令序列":[{"module":"move_to","params":{"target":"$NPC.知识库.水源位置"}},{"module":"drink","params":{}}],"效果":{"口渴":-5}},
+    {"动作id":"action_sleep_herd","名称":"睡觉(挤一起)","指令序列":[{"module":"move_to","params":{"target":"$最近同群羊"}},{"module":"sleep","params":{"duration":2000}}],"效果":{"疲劳":-4}},
+    {"动作id":"action_follow_herd","名称":"跟随羊群","指令序列":[{"module":"move_to","params":{"target":"$最近同群羊","distance":3}}]}
+  ]
+}
