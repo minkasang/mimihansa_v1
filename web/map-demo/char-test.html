@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>像素小人 — Q版可爱风</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #1a1a2e; display: flex; flex-direction: column; align-items: center; padding: 20px; color: #fff; font-family: 'Microsoft YaHei',sans-serif; }
+  h1 { font-size: 18px; color: #f48fb1; margin-bottom: 4px; }
+  .sub { font-size: 11px; color: #888; margin-bottom: 12px; }
+  canvas { image-rendering: pixelated; border: 2px solid #0f3460; }
+  .row { display: flex; gap: 16px; flex-wrap: wrap; justify-content: center; }
+  .card { background: #16213e; border: 1px solid #0f3460; border-radius: 6px; padding: 8px 12px; text-align: center; font-size: 11px; color: #aaa; }
+  .card b { color: #f48fb1; display: block; margin-bottom: 2px; }
+</style>
+</head>
+<body>
+<h1>👤 Q版像素小人 — Canvas 手绘</h1>
+<p class="sub">大头小身体 · 圆眼睛 · 可爱配色 | 6种职业</p>
+
+<div class="row">
+  <div class="card"><b>农民 站立</b><canvas id="c1" width="64" height="64"></canvas></div>
+  <div class="card"><b>农民 走路①</b><canvas id="c2" width="64" height="64"></canvas></div>
+  <div class="card"><b>农民 走路②</b><canvas id="c3" width="64" height="64"></canvas></div>
+  <div class="card"><b>农民 侧面</b><canvas id="c4" width="64" height="64"></canvas></div>
+  <div class="card"><b>农民 背面</b><canvas id="c5" width="64" height="64"></canvas></div>
+  <div class="card"><b>猎人</b><canvas id="c6" width="64" height="64"></canvas></div>
+</div>
+<div class="row" style="margin-top:12px;">
+  <div class="card"><b>商人</b><canvas id="c7" width="64" height="64"></canvas></div>
+  <div class="card"><b>书生</b><canvas id="c8" width="64" height="64"></canvas></div>
+  <div class="card"><b>恶霸</b><canvas id="c9" width="64" height="64"></canvas></div>
+  <div class="card"><b>少女</b><canvas id="ca" width="64" height="64"></canvas></div>
+  <div class="card"><b>妇人</b><canvas id="cb" width="64" height="64"></canvas></div>
+  <div class="card"><b>小孩</b><canvas id="cc" width="64" height="64"></canvas></div>
+</div>
+<div class="row" style="margin-top:12px;">
+  <div class="card"><b>农民 正面大图</b><canvas id="big" width="128" height="128"></canvas></div>
+</div>
+
+<script>
+const PX = 2; // 像素倍率
+
+function pset(ctx, x, y, c) { ctx.fillStyle = c; ctx.fillRect(x*PX, y*PX, PX, PX); }
+function prect(ctx, x, y, w, h, c) { ctx.fillStyle = c; ctx.fillRect(x*PX, y*PX, w*PX, h*PX); }
+
+// 圆角 ─ 画圆弧代替直角（Q版可爱感的关键）
+function prnd(ctx, x, y, w, h, c, r = 3) {
+  ctx.fillStyle = c;
+  ctx.beginPath();
+  ctx.moveTo((x+r)*PX, y*PX);
+  ctx.lineTo((x+w-r)*PX, y*PX);
+  ctx.quadraticCurveTo((x+w)*PX, y*PX, (x+w)*PX, (y+r)*PX);
+  ctx.lineTo((x+w)*PX, (y+h-r)*PX);
+  ctx.quadraticCurveTo((x+w)*PX, (y+h)*PX, (x+w-r)*PX, (y+h)*PX);
+  ctx.lineTo((x+r)*PX, (y+h)*PX);
+  ctx.quadraticCurveTo(x*PX, (y+h)*PX, x*PX, (y+h-r)*PX);
+  ctx.lineTo(x*PX, (y+r)*PX);
+  ctx.quadraticCurveTo(x*PX, y*PX, (x+r)*PX, y*PX);
+  ctx.closePath();
+  ctx.fill();
+}
+
+function dark(hex, a) { const r=hex.slice(1,3),g=hex.slice(3,5),b=hex.slice(5,7); return '#'+[r,g,b].map(x=>Math.max(0,parseInt(x,16)-a).toString(16).padStart(2,'0')).join(''); }
+function lite(hex, a) { const r=hex.slice(1,3),g=hex.slice(3,5),b=hex.slice(5,7); return '#'+[r,g,b].map(x=>Math.min(255,parseInt(x,16)+a).toString(16).padStart(2,'0')).join(''); }
+
+function drawQCharacter(ctx, pal, frame) {
+  const s = pal;
+  ctx.clearRect(0, 0, 64, 64);
+
+  // ── 阴影 ──
+  ctx.fillStyle = 'rgba(0,0,0,0.25)';
+  ctx.beginPath();
+  ctx.ellipse(16*PX, 30*PX, 6*PX, 2*PX, 0, 0, Math.PI*2);
+  ctx.fill();
+
+  if (frame === 'back') {
+    // ── 背面 ──
+    prnd(ctx, 7, 1, 18, 14, s.hair);           // 后脑勺
+    prect(ctx, 8, 15, 16, 6, s.topDark);        // 衣服背
+    prect(ctx, 7, 12, 3, 8, s.topDark); prect(ctx, 22, 12, 3, 8, s.topDark); // 手臂
+    prect(ctx, 9, 21, 6, 7, s.bottom); prect(ctx, 17, 21, 6, 7, s.bottom);
+    prnd(ctx, 8, 28, 7, 3, s.shoes); prnd(ctx, 17, 28, 7, 3, s.shoes);
+    return;
+  }
+
+  if (frame === 'side') {
+    prnd(ctx, 5, 1, 18, 14, s.hair);
+    prnd(ctx, 6, 3, 13, 11, s.skin);
+    // 侧面一只大眼睛
+    prect(ctx, 13, 6, 5, 4, '#fff'); pset(ctx, 14, 7, s.eye); pset(ctx, 16, 6, '#fff');
+    prect(ctx, 13, 11, 5, 1, '#e88');
+    prnd(ctx, 5, 15, 18, 8, s.top);
+    prect(ctx, 3, 17, 4, 6, s.top); prect(ctx, 22, 17, 4, 6, s.topDark);
+    prect(ctx, 7, 23, 7, 6, s.bottom); prect(ctx, 16, 23, 7, 6, s.bottomDark);
+    prnd(ctx, 6, 29, 8, 3, s.shoes); prnd(ctx, 15, 29, 8, 3, s.shoes);
+    return;
+  }
+
+  // ── 正面 ──
+  const wo = frame === 'walk1' ? 1 : frame === 'walk2' ? -1 : 0;
+
+  // 帽子
+  if (s.hat) { prnd(ctx, 6, 0, 20, 4, s.hat); prnd(ctx, 5, 3, 22, 3, s.hatLight || lite(s.hat,20)); }
+  else {
+    prnd(ctx, 6, 0, 20, 5, s.hair);
+    prect(ctx, 5, 5, 22, 2, s.hair);
+  }
+
+  // ── 大脸 (Q版特征: 脸占主体) ──
+  prnd(ctx, 6, 5, 20, 12, s.skin);
+  // 脸颊红晕
+  prnd(ctx, 7, 10, 4, 3, s.blush || '#ffb3ba'); prnd(ctx, 21, 10, 4, 3, s.blush || '#ffb3ba');
+
+  // 眉毛 ─ 弯弯的短弧
+  prect(ctx, 9, 8, 4, 1, s.eye); prect(ctx, 19, 8, 4, 1, s.eye);
+
+  // ── 大圆眼睛 ──
+  prnd(ctx, 8, 9, 6, 5, '#fff', 2); prnd(ctx, 18, 9, 6, 5, '#fff', 2);
+  // 瞳孔 (大!)
+  prnd(ctx, 10, 10, 4, 3, s.eye, 1); prnd(ctx, 20, 10, 4, 3, s.eye, 1);
+  // 高光 (双光点)
+  pset(ctx, 9, 9, '#fff'); pset(ctx, 12, 10, '#fff');
+  pset(ctx, 19, 9, '#fff'); pset(ctx, 22, 10, '#fff');
+
+  // 小鼻子
+  pset(ctx, 15, 13, s.skinDark || dark(s.skin,20));
+  pset(ctx, 16, 13, s.skinDark || dark(s.skin,20));
+
+  // 小嘴 ─ 弯弯的微笑弧
+  prect(ctx, 14, 15, 4, 2, '#e57373');
+  prect(ctx, 15, 14, 2, 1, '#e57373');
+
+  // ── 身体 (Q版: 小) ──
+  if (s.hat) { prnd(ctx, 8, 18, 16, 8, s.top, 2); prect(ctx, 8, 18, 16, 1, lite(s.top,30)); }
+  else { prect(ctx, 8, 18, 16, 8, s.top); prect(ctx, 8, 18, 16, 1, lite(s.top,20)); }
+
+  // 腰带
+  if (s.belt) { prect(ctx, 9, 24, 14, 2, s.belt); prect(ctx, 14, 24, 4, 2, s.buckle || '#ffd700'); }
+
+  // ── 小短腿 ──
+  prect(ctx, 9, 26, 6, 5, s.bottom); prect(ctx, 17, 26, 6, 5, s.bottom);
+  prnd(ctx, 8, 29, 8, 3, s.shoes, 1); prnd(ctx, 16, 29, 8, 3, s.shoes, 1);
+
+  // ── 手臂 ──
+  if (wo === 1) {
+    prnd(ctx, 3, 19, 6, 5, s.top, 1); prnd(ctx, 23, 20, 6, 5, s.topDark || dark(s.top,30), 1);
+  } else if (wo === -1) {
+    prnd(ctx, 3, 20, 6, 5, s.topDark || dark(s.top,30), 1); prnd(ctx, 23, 19, 6, 5, s.top, 1);
+  } else {
+    prnd(ctx, 3, 20, 6, 5, s.top, 1); prnd(ctx, 23, 20, 6, 5, s.top, 1);
+  }
+}
+
+// ============== 可爱色板 ==============
+const farmer = {
+  skin:'#ffdbb5', hair:'#5d4037', eye:'#3e2723',
+  top:'#a5d6a7', bottom:'#795548', shoes:'#4e342e',
+  hat:'#fff176', hatLight:'#fff9c4', belt:'#8d6e63', buckle:'#ffd700',
+  blush:'#ffcdd2',
+};
+const hunter = {
+  skin:'#e8c99b', hair:'#4a2c1a', eye:'#2c1810',
+  top:'#8d6e63', topDark:'#6d4c41', bottom:'#5d4037', shoes:'#3e2723',
+  belt:'#6d4c41', buckle:'#a0522d', blush:'#ffccbc',
+};
+const merchant = {
+  skin:'#ffe0b2', hair:'#1a237e', eye:'#0d124a',
+  top:'#ce93d8', topDark:'#ab47bc', bottom:'#6a1b9a', shoes:'#4a148c',
+  belt:'#8e24aa', buckle:'#ffd700', blush:'#f8bbd0',
+};
+const scholar = {
+  skin:'#fff3e0', hair:'#263238', eye:'#102027',
+  top:'#e8eaf6', topDark:'#c5cae9', bottom:'#90a4ae', shoes:'#546e7a',
+  belt:'#78909c', buckle:'#cfd8dc', blush:'#ffccbc',
+};
+const thug = {
+  skin:'#d7ccc8', hair:'#212121', eye:'#000',
+  top:'#e53935', topDark:'#b71c1c', bottom:'#3e0000', shoes:'#1a0000',
+  belt:'#212121', buckle:'#757575', blush:'#ef9a9a',
+};
+const girl = {
+  skin:'#ffecd2', hair:'#3e2723', eye:'#4a2c1a',
+  top:'#f8bbd0', topDark:'#f48fb1', bottom:'#e91e63', shoes:'#880e4f',
+  belt:'#ad1457', buckle:'#ff80ab', blush:'#ffcdd2',
+  hat:'#f48fb1', hatLight:'#fce4ec',
+};
+const woman = {
+  skin:'#ffdbb5', hair:'#4e342e', eye:'#3e2723',
+  top:'#b3e5fc', topDark:'#81d4fa', bottom:'#0277bd', shoes:'#01579b',
+  belt:'#0288d1', buckle:'#b3e5fc', blush:'#f8bbd0',
+};
+const kid = {
+  skin:'#ffe0b2', hair:'#795548', eye:'#4e342e',
+  top:'#fff9c4', topDark:'#fff176', bottom:'#f9a825', shoes:'#f57f17',
+  belt:'#fbc02d', buckle:'#ffeb3b', blush:'#ffccbc',
+};
+
+// 渲染全部
+const frames = [
+  ['c1', farmer, 'idle'],['c2', farmer, 'walk1'],['c3', farmer, 'walk2'],
+  ['c4', farmer, 'side'],['c5', farmer, 'back'],
+  ['c6', hunter, 'idle'],['c7', merchant, 'idle'],['c8', scholar, 'idle'],
+  ['c9', thug, 'idle'],['ca', girl, 'idle'],['cb', woman, 'idle'],['cc', kid, 'idle'],
+];
+for (const [id, pal, frame] of frames) {
+  drawQCharacter(document.getElementById(id).getContext('2d'), pal, frame);
+}
+// 大图：临时用 PX=4 再画一遍
+{ const b = document.getElementById('big'); b.width = 128; b.height = 128;
+  const ctx2 = b.getContext('2d');
+  const savedPX = PX;
+  // 直接重定义 PX 不现实，所以手工放大画
+  // 换个方式：用 drawImage 把小图画到大的上
+  const smallCanvas = document.createElement('canvas');
+  smallCanvas.width = 64; smallCanvas.height = 64;
+  drawQCharacter(smallCanvas.getContext('2d'), farmer, 'idle');
+  ctx2.imageSmoothingEnabled = false;
+  ctx2.drawImage(smallCanvas, 0, 0, 64, 64, 0, 0, 128, 128);
+}
+console.log('✅ Q版可爱小人已绘制');
+</script>
+</body>
+</html>

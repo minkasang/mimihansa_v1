@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>水流模拟 - 真实物理版</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { 
+    background: #1a1a2e; 
+    font-family: 'Microsoft YaHei', sans-serif; 
+    display: flex; 
+    flex-direction: column; 
+    align-items: center; 
+    padding: 20px; 
+    color: #fff; 
+  }
+  h1 { font-size: 16px; color: #4fc3f7; margin-bottom: 4px; }
+  .subtitle { font-size: 11px; color: #888; margin-bottom: 10px; }
+  #mc { 
+    image-rendering: pixelated; 
+    border: 2px solid #0f3460; 
+    cursor: crosshair;
+    background: #0d1b2a;
+  }
+  .tools { 
+    display: flex; 
+    gap: 10px; 
+    flex-wrap: wrap; 
+    justify-content: center; 
+    align-items: center; 
+    margin: 10px 0; 
+  }
+  .tools button { 
+    padding: 7px 14px; 
+    border: 1px solid #0f3460; 
+    background: #16213e; 
+    color: #fff; 
+    border-radius: 4px; 
+    cursor: pointer; 
+    font-size: 13px; 
+  }
+  .tools button:hover { background: #1565c0; }
+  .tools button.act { background: #1565c0; }
+  .status { 
+    font-size: 11px; 
+    color: #aaa; 
+    display: flex; 
+    gap: 16px; 
+    justify-content: center; 
+  }
+  .status b { color: #4fc3f7; }
+  .physics-info {
+    font-size: 10px;
+    color: #666;
+    margin-top: 8px;
+    text-align: center;
+    max-width: 600px;
+    line-height: 1.5;
+  }
+</style>
+</head>
+<body>
+<h1>💧 水流模拟 - 真实物理版</h1>
+<p class="subtitle">泊肃叶流 · 压力驱动 · 体积守恒 · 重力势能转化</p>
+<canvas id="mc"></canvas>
+<div class="tools">
+  <button id="bd" class="act">挖土 Q</button>
+  <button id="bf">填土 W</button>
+  <button id="bw">加水 E</button>
+  <button id="br">抽水 R</button>
+  <select id="bs">
+    <option value="1">1×1</option>
+    <option value="2">2×2</option>
+    <option value="3" selected>3×3</option>
+    <option value="5">5×5</option>
+  </select>
+  <button id="reset">重置</button>
+</div>
+<div class="status">
+  <span>总水量: <b id="sw">0</b></span>
+  <span>平均水深: <b id="sd">0</b></span>
+  <span>压力差: <b id="sp">0</b></span>
+  <span>总量: <b id="sv">0</b></span>
+</div>
+<p class="physics-info">
+  物理模型：∂h/∂t = -∇·(q) + S,  q = -K·∇P<br>
+  其中 h=水深, q=流量, K=渗透率, P=压力=ρgh, S=源汇项
+</p>
+
+<script>
+// ==================== 物理常数 ====================
+const W = 32, H = 24;           // 网格尺寸
+const TS = 24;                  // 瓦片像素
+const DT = 0.016;               // 时间步长 (秒)
+const G = 9.8;                  // 重力加速度
+const RHO = 1000;               // 水密度 (kg/m³)
+const MU = 0.001;               // 动力粘度 (Pa·s)
+const K_PERMEABILITY = 2.0;     // 土壤渗透率 (提高让水流更快)
+const MIN_DEPTH = 0.001;        // 最小水深 (表面张力效应)
+const MAX_DEPTH = 10;           // 最大水深
+
+// ==================== 地形初始化 ====================
+const RIVER_BED = 0;
+const RIVER_DEPTH = 4;        // 河水深度，水面高度=4
+const GRASS_ELEV = 5;         // 草地高度=5，高于水面，水不会自动流出
+
+let grid = [];      // 每个格子: { elev, depth, pressure, terrain }
+
+function initGrid() {
+  grid = [];
+  
+  for (let y = 0; y < H; y++) {
+    grid[y] = [];
+    
+    for (let x = 0; x < W; x++) {
+      if (y >= 10 && y <= 13) {
+        grid[y][x] = {
+          elev: RIVER_BED,
+          depth: RIVER_DEPTH,
+          terrain: 'river'
+        };
+      }
+      // 创建石头障碍
+      else if (y >= 16 && y <= 18 && x >= 20 && x <= 24) {
+        grid[y][x] = {
+          elev: 8,
+          depth: 0,
+          terrain: 'stone'
+        };
+      }
+      // 创建高地
+      else if (y >= 2 && y <= 5 && x >= 2 && x <= 8) {
+        grid[y][x] = {
+          elev: 10,
+          depth: 0,
+          terrain: 'grass'
+        };
+      }
+      // 默认草地
+      else {
+        grid[y][x] = {
+          elev: GRASS_ELEV,
+          depth: 0,
+          terrain: 'grass'
+        };
+      }
+    }
+  }
+  
+  updatePressure();
+}
+
+// ==================== 物理计算 ====================
+
+// 计算压力: P = ρ * g * (elev + depth)
+// 表面高度 = elev + depth
+function getSurfaceHeight(cell) {
+  return cell.elev + cell.depth;
+}
+
+// 更新所有格子的压力
+function updatePressure() {
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      const cell = grid[y][x];
+      // 水压力 = 水密度 * 重力 * 水深
+      cell.pressure = cell.depth > MIN_DEPTH ? RHO * G * cell.depth : 0;
+    }
+  }
+}
+
+// 计算两点间的压力梯度驱动流
+// 根据达西定律: q = -K * A * (ΔP / Δx)
+// 简化为: flow = K * Δh (其中 Δh 是表面高度差)
+function calculateFlow(cellA, cellB) {
+  const hA = getSurfaceHeight(cellA);
+  const hB = getSurfaceHeight(cellB);
+  const deltaH = hA - hB;
+  
+  // 只有高处向低处流
+  if (deltaH <= 0) return 0;
+  
+  // 泊肃叶流近似: 流量 ∝ 压力差 * 渗透率
+  // 同时考虑水的可用量
+  const availableWater = Math.max(0, cellA.depth - MIN_DEPTH);
+  const maxFlow = availableWater * 0.3; // 每步最多流30%
+  
+  // 流量 = 渗透率 * 高度差 * 时间步长
+  const flow = K_PERMEABILITY * deltaH * DT;
+  
+  return Math.min(flow, maxFlow);
+}
+
+// 单步流体模拟 (使用算子分裂法)
+function simulateFlow() {
+  let maxFlow = 0;
+  let totalFlow = 0;
+  
+  // 创建深度变化缓冲区
+  const depthDelta = [];
+  for (let y = 0; y < H; y++) {
+    depthDelta[y] = new Array(W).fill(0);
+  }
+  
+  // 计算所有格子的流动
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      const cell = grid[y][x];
+      if (cell.depth <= MIN_DEPTH) continue;
+      
+      // 检查四个邻居
+      const neighbors = [
+        { dx: 0, dy: -1 }, // 上
+        { dx: 0, dy: 1 },  // 下
+        { dx: -1, dy: 0 }, // 左
+        { dx: 1, dy: 0 }   // 右
+      ];
+      
+      for (const { dx, dy } of neighbors) {
+        const nx = x + dx;
+        const ny = y + dy;
+        
+        if (nx < 0 || nx >= W || ny < 0 || ny >= H) continue;
+        
+        const neighbor = grid[ny][nx];
+        const flow = calculateFlow(cell, neighbor);
+        
+        if (flow > 0) {
+          depthDelta[y][x] -= flow;
+          depthDelta[ny][nx] += flow;
+          
+          maxFlow = Math.max(maxFlow, flow);
+          totalFlow += flow;
+        }
+      }
+    }
+  }
+  
+  // 应用深度变化（先钳制使不泄漏）
+  const before = sumWater();
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      const newDepth = grid[y][x].depth + depthDelta[y][x];
+      grid[y][x].depth = Math.max(0, Math.min(MAX_DEPTH, newDepth));
+    }
+  }
+  // 质量守恒修正：如果钳制导致了水流失，等比补回
+  const after = sumWater();
+  const leaked = before - after;
+  if (leaked > 0.01) {
+    // 把漏掉的水公平分配给所有有水格子
+    const waterCells = [];
+    for (let y = 0; y < H; y++)
+      for (let x = 0; x < W; x++)
+        if (grid[y][x].depth > MIN_DEPTH) waterCells.push([y, x]);
+    if (waterCells.length > 0) {
+      const perCell = leaked / waterCells.length;
+      for (const [y, x] of waterCells) grid[y][x].depth = Math.min(MAX_DEPTH, grid[y][x].depth + perCell);
+    }
+  }
+
+  updatePressure();
+  
+  return { maxFlow, totalFlow };
+}
+
+function sumWater() {
+  let s = 0;
+  for (let y = 0; y < H; y++)
+    for (let x = 0; x < W; x++)
+      s += grid[y][x].depth;
+  return s;
+}
+
+// 多步迭代使系统更快趋于平衡
+function iterateFlow(steps = 10) {
+  let avgFlow = 0;
+  for (let i = 0; i < steps; i++) {
+    const result = simulateFlow();
+    avgFlow += result.maxFlow;
+    if (result.maxFlow < 0.0001) break; // 已平衡
+  }
+  return avgFlow / steps;
+}
+
+// ==================== 操作函数 ====================
+
+function dig(x, y) {
+  const cell = grid[y]?.[x];
+  if (!cell || cell.elev <= RIVER_BED) return;
+  
+  cell.elev = Math.max(RIVER_BED, cell.elev - 0.5);
+  if (cell.terrain === 'grass') cell.terrain = 'dirt';
+}
+
+function fill(x, y) {
+  const cell = grid[y]?.[x];
+  if (!cell) return;
+  
+  const oldElev = cell.elev;
+  cell.elev = Math.min(15, cell.elev + 0.5);
+  
+  // 填土时挤出水
+  if (cell.depth > 0) {
+    const displaced = Math.min(cell.depth, (cell.elev - oldElev) * 0.8);
+    cell.depth -= displaced;
+    
+    // 水被挤到邻居
+    const dirs = [[0,-1],[0,1],[-1,0],[1,0]];
+    for (const [dx, dy] of dirs) {
+      const nx = x + dx, ny = y + dy;
+      if (nx >= 0 && nx < W && ny >= 0 && ny < H) {
+        grid[ny][nx].depth += displaced / 4;
+      }
+    }
+  }
+  
+  if (cell.terrain === 'grass' || cell.terrain === 'river') {
+    cell.terrain = 'dirt';
+  }
+}
+
+function addWater(x, y, amount = 1.0) {
+  const cell = grid[y]?.[x];
+  if (!cell) return;
+  cell.depth = Math.min(MAX_DEPTH, cell.depth + amount);
+}
+
+function removeWater(x, y, amount = 1.0) {
+  const cell = grid[y]?.[x];
+  if (!cell) return;
+  cell.depth = Math.max(0, cell.depth - amount);
+}
+
+// ==================== 渲染 ====================
+
+const canvas = document.getElementById('mc');
+canvas.width = W * TS;
+canvas.height = H * TS;
+const ctx = canvas.getContext('2d');
+
+function getTerrainColor(cell) {
+  // 水下的地形
+  if (cell.depth > 0.1) {
+    const depthFactor = Math.min(1, cell.depth / 3);
+    // 深水处更暗
+    const r = Math.floor(26 * (1 - depthFactor * 0.5));
+    const g = Math.floor(40 * (1 - depthFactor * 0.3));
+    const b = Math.floor(60 + depthFactor * 40);
+    return `rgb(${r},${g},${b})`;
+  }
+  
+  // 干燥地形
+  if (cell.terrain === 'stone') {
+    return cell.elev >= 7 ? '#a0a0a0' : '#808080';
+  }
+  if (cell.terrain === 'dirt') {
+    const brightness = Math.max(60, 140 - cell.elev * 8);
+    return `rgb(${brightness},${brightness * 0.7},${brightness * 0.5})`;
+  }
+  if (cell.elev >= 8) return '#7cb342';
+  if (cell.elev >= 6) return '#8bc34a';
+  if (cell.elev >= 4) return '#9ccc65';
+  return '#aed581';
+}
+
+function getWaterColor(depth) {
+  if (depth <= MIN_DEPTH) return null;
+  
+  const intensity = Math.min(1, depth / 5);
+  // 浅水偏青，深水偏蓝
+  const r = Math.floor(64 - intensity * 30);
+  const g = Math.floor(164 - intensity * 40);
+  const b = Math.floor(255 - intensity * 20);
+  const a = 0.3 + intensity * 0.5;
+  
+  return `rgba(${r},${g},${b},${a})`;
+}
+
+function redraw() {
+  ctx.fillStyle = '#0d1b2a';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  
+  let totalDepth = 0;
+  let waterCells = 0;
+  let maxPressure = 0;
+  
+  // 绘制地形
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      const cell = grid[y][x];
+      const px = x * TS;
+      const py = y * TS;
+      
+      // 地形底色
+      ctx.fillStyle = getTerrainColor(cell);
+      ctx.fillRect(px, py, TS, TS);
+      
+      // 水层
+      if (cell.depth > MIN_DEPTH) {
+        const waterColor = getWaterColor(cell.depth);
+        if (waterColor) {
+          ctx.fillStyle = waterColor;
+          ctx.fillRect(px, py, TS, TS);
+        }
+        
+        // 水面高光
+        if (cell.depth > 0.5) {
+          ctx.fillStyle = `rgba(255,255,255,${0.05 + cell.depth * 0.03})`;
+          ctx.fillRect(px, py, TS, Math.max(1, TS * 0.15));
+        }
+        
+        totalDepth += cell.depth;
+        waterCells++;
+        maxPressure = Math.max(maxPressure, cell.pressure);
+      }
+    }
+  }
+  
+  // 格线
+  ctx.strokeStyle = 'rgba(255,255,255,0.03)';
+  ctx.lineWidth = 0.5;
+  for (let y = 0; y <= H; y++) {
+    ctx.beginPath();
+    ctx.moveTo(0, y * TS);
+    ctx.lineTo(canvas.width, y * TS);
+    ctx.stroke();
+  }
+  for (let x = 0; x <= W; x++) {
+    ctx.beginPath();
+    ctx.moveTo(x * TS, 0);
+    ctx.lineTo(x * TS, canvas.height);
+    ctx.stroke();
+  }
+  
+  // 更新统计
+  document.getElementById('sw').textContent = totalDepth.toFixed(2);
+  document.getElementById('sd').textContent = waterCells > 0 ? (totalDepth / waterCells).toFixed(2) : '0';
+  document.getElementById('sp').textContent = (maxPressure / 1000).toFixed(1) + 'k';
+  document.getElementById('sv').textContent = totalDepth.toFixed(1);
+}
+
+// ==================== 交互 ====================
+
+let tool = 'dig';
+let brushSize = 3;
+
+function updateButtons() {
+  ['dig','fill','water','drain'].forEach(t => {
+    document.getElementById('b' + t[0]).classList.toggle('act', tool === t);
+  });
+}
+
+document.getElementById('bd').onclick = () => { tool = 'dig'; updateButtons(); };
+document.getElementById('bf').onclick = () => { tool = 'fill'; updateButtons(); };
+document.getElementById('bw').onclick = () => { tool = 'water'; updateButtons(); };
+document.getElementById('br').onclick = () => { tool = 'drain'; updateButtons(); };
+document.getElementById('bs').onchange = (e) => { brushSize = parseInt(e.target.value); };
+document.getElementById('reset').onclick = () => { initGrid(); redraw(); };
+
+document.onkeydown = (e) => {
+  if (e.key === 'q') { tool = 'dig'; updateButtons(); }
+  if (e.key === 'w') { tool = 'fill'; updateButtons(); }
+  if (e.key === 'e') { tool = 'water'; updateButtons(); }
+  if (e.key === 'r') { tool = 'drain'; updateButtons(); }
+};
+
+function handleClick(e) {
+  const rect = canvas.getBoundingClientRect();
+  const scaleX = canvas.width / rect.width;
+  const scaleY = canvas.height / rect.height;
+  const mx = Math.floor((e.clientX - rect.left) * scaleX);
+  const my = Math.floor((e.clientY - rect.top) * scaleY);
+  const cx = Math.floor(mx / TS);
+  const cy = Math.floor(my / TS);
+  
+  if (cx < 0 || cx >= W || cy < 0 || cy >= H) return;
+  
+  const halfBrush = Math.floor(brushSize / 2);
+  
+  for (let dy = 0; dy < brushSize; dy++) {
+    for (let dx = 0; dx < brushSize; dx++) {
+      const tx = cx + dx - halfBrush;
+      const ty = cy + dy - halfBrush;
+      
+      if (tx < 0 || tx >= W || ty < 0 || ty >= H) continue;
+      
+      switch (tool) {
+        case 'dig': dig(tx, ty); break;
+        case 'fill': fill(tx, ty); break;
+        case 'water': addWater(tx, ty, 0.5); break;
+        case 'drain': removeWater(tx, ty, 0.5); break;
+      }
+    }
+  }
+  
+  // 操作后立即模拟多步使水流趋于平衡
+  iterateFlow(20);
+  redraw();
+}
+
+canvas.addEventListener('click', handleClick);
+
+// ==================== 主循环 ====================
+
+let frameCount = 0;
+
+function gameLoop() {
+  // 水源补充 (河流区域)
+  for (let y = 10; y <= 13; y++) {
+    for (let x = 0; x < W; x++) {
+      if (grid[y][x].terrain === 'river' && grid[y][x].depth < RIVER_DEPTH) {
+        grid[y][x].depth += 0.02;
+      }
+    }
+  }
+  
+  // 模拟流动
+  iterateFlow(5);
+  redraw();
+  
+  frameCount++;
+  requestAnimationFrame(gameLoop);
+}
+
+// 启动
+initGrid();
+redraw();
+requestAnimationFrame(gameLoop);
+
+console.log('✅ 水流模拟 - 真实物理版已启动');
+console.log('物理模型: 泊肃叶流, 压力驱动, 体积守恒');
+</script>
+</body>
+</html>

@@ -294,29 +294,39 @@ export function findNearestPassable(
 export const 幸福镇地图: MapConfig = {
   id: "happy_town",
   name: "幸福镇",
-  width: 100,
-  height: 100,
+  width: 300,
+  height: 300,
   tileSize: 32,
 
   // 地形生成器 — 草地、农田土、池塘、石岸
   terrainGenerator: (x, y) => {
-    // 地图边缘石岸
-    if (x <= 1 || y <= 1 || x >= 98 || y >= 98) return TerrainType.STONE;
+    // 地图边缘石岸（300格→3格宽边框）
+    if (x <= 3 || y <= 3 || x >= 296 || y >= 296) return TerrainType.STONE;
 
-    // 东南池塘
-    const pondDx = x - 88;
-    const pondDy = y - 78;
-    if (pondDx * pondDx + pondDy * pondDy < 49) return TerrainType.WATER;
+    // 东南池塘（扩大3倍）
+    const pondDx = x - 264;
+    const pondDy = y - 234;
+    if (pondDx * pondDx + pondDy * pondDy < 147) return TerrainType.WATER;
 
-    // 西侧农田土区（麦田周边）
-    if (x >= 78 && x <= 97 && y >= 38 && y <= 58) return TerrainType.DIRT;
+    // 北侧湖泊
+    const lakeDx = x - 60;
+    const lakeDy = y - 45;
+    if (lakeDx * lakeDx + lakeDy * lakeDy < 80) return TerrainType.WATER;
 
-    // 镇中心花坛草地（十字路口附近保持绿茵）
-    const cx = 50 - x;
-    const cy = 50 - y;
-    if (cx * cx + cy * cy < 36) return TerrainType.GRASS;
+    // 西南湿地水洼
+    const marshDx = x - 40;
+    const marshDy = y - 260;
+    if (marshDx * marshDx + marshDy * marshDy < 50) return TerrainType.WATER;
 
-    // 自然起伏：草甸与土路痕迹
+    // 西侧农田土区
+    if (x >= 234 && x <= 291 && y >= 114 && y <= 174) return TerrainType.DIRT;
+
+    // 镇中心花坛草地
+    const cx = 150 - x;
+    const cy = 150 - y;
+    if (cx * cx + cy * cy < 108) return TerrainType.GRASS;
+
+    // 自然起伏
     const noise =
       Math.sin(x * 0.07) * Math.cos(y * 0.06) +
       Math.sin((x + y) * 0.04) * 0.6 +
@@ -325,56 +335,40 @@ export const 幸福镇地图: MapConfig = {
     return TerrainType.GRASS;
   },
 
-  // 道路网络 - 小镇主干道（简洁清晰的布局）
+  // 道路网络（坐标×3）
   roads: [
-    // 东西主街 - 主干道，轻微弯曲
-    { type: "curve", start: [10, 30], end: [90, 30], width: 3, controlPoints: [[50, 28]] },
-    // 南北主街 - 主干道，轻微弯曲
-    { type: "curve", start: [50, 10], end: [50, 90], width: 3, controlPoints: [[48, 50]] },
-    // 北侧商业街 - 简单弧线
-    { type: "curve", start: [25, 15], end: [75, 15], width: 2, controlPoints: [[50, 14]] },
-    // 南侧住宅街 - 简单弧线
-    { type: "curve", start: [25, 60], end: [75, 60], width: 2, controlPoints: [[50, 61]] },
-    // 东侧小路
-    { type: "curve", start: [75, 25], end: [75, 55], width: 2, controlPoints: [[76, 40]] },
-    // 西侧小路
-    { type: "curve", start: [25, 25], end: [25, 55], width: 2, controlPoints: [[24, 40]] },
-    // 连接小路（简化）
-    { type: "curve", start: [25, 30], end: [25, 15], width: 1, controlPoints: [] },
-    { type: "curve", start: [75, 30], end: [75, 15], width: 1, controlPoints: [] },
-    { type: "curve", start: [25, 60], end: [25, 30], width: 1, controlPoints: [] },
-    { type: "curve", start: [75, 60], end: [75, 30], width: 1, controlPoints: [] },
-    { type: "curve", start: [50, 15], end: [50, 30], width: 1, controlPoints: [] },
-    { type: "curve", start: [50, 60], end: [50, 30], width: 1, controlPoints: [] },
+    { type: "curve", start: [30, 90], end: [270, 90], width: 3, controlPoints: [[150, 84]] },
+    { type: "curve", start: [150, 30], end: [150, 270], width: 3, controlPoints: [[144, 150]] },
+    { type: "curve", start: [75, 45], end: [225, 45], width: 2, controlPoints: [[150, 42]] },
+    { type: "curve", start: [75, 180], end: [225, 180], width: 2, controlPoints: [[150, 183]] },
+    { type: "curve", start: [225, 75], end: [225, 165], width: 2, controlPoints: [[228, 120]] },
+    { type: "curve", start: [75, 75], end: [75, 165], width: 2, controlPoints: [[72, 120]] },
+    { type: "curve", start: [75, 90], end: [75, 45], width: 1, controlPoints: [] },
+    { type: "curve", start: [225, 90], end: [225, 45], width: 1, controlPoints: [] },
+    { type: "curve", start: [75, 180], end: [75, 90], width: 1, controlPoints: [] },
+    { type: "curve", start: [225, 180], end: [225, 90], width: 1, controlPoints: [] },
+    { type: "curve", start: [150, 45], end: [150, 90], width: 1, controlPoints: [] },
+    { type: "curve", start: [150, 180], end: [150, 90], width: 1, controlPoints: [] },
   ],
 
-  // 建筑 - 沿路分布（注意：建筑不要与道路重叠）
   buildings: [
-    // 北侧商业街（y=15是商业街道路，建筑在道路上方 y=8-13）
-    { id: "fruit_shop", name: "吴平水果店", type: "商店", owner: "吴平", bounds: [30, 8, 40, 13], color: "#ff9800", entrance: [35, 13] },
-    { id: "flower_shop", name: "云香花店", type: "商店", owner: "云香", bounds: [55, 8, 65, 13], color: "#e91e63", entrance: [60, 13] },
-    { id: "clothes_shop", name: "胡倩服装店", type: "商店", owner: "胡倩", bounds: [42, 8, 52, 13], color: "#9c27b0", entrance: [47, 13] },
-
-    // 南侧住宅区（y=60是住宅街道路，建筑在道路下方 y=63-68）
-    { id: "yunfei_home", name: "云飞家", type: "住宅", owner: "云飞", bounds: [30, 63, 38, 68], color: "#4caf50", entrance: [34, 63] },
-    { id: "qilinlin_home", name: "齐琳琳家", type: "住宅", owner: "齐琳琳", bounds: [55, 63, 63, 68], color: "#2196f3", entrance: [59, 63] },
-    { id: "liukun_home", name: "刘坤家", type: "住宅", owner: "刘坤", bounds: [42, 63, 50, 68], color: "#795548", entrance: [46, 63] },
-
-    // 东侧农田（远离道路）
-    { id: "wheat_field", name: "麦田", type: "农田", bounds: [82, 42, 95, 55], color: "#ffc107" },
-
-    // 西侧小广场（远离道路）
-    { id: "square", name: "小广场", type: "公共", bounds: [8, 42, 18, 52], color: "#607d8b" },
+    { id: "fruit_shop", name: "周明哲水果店", type: "商店", owner: "周明哲", bounds: [92, 36, 95, 38], color: "#ff9800", entrance: [93, 38] },
+    { id: "flower_shop", name: "陈晓燕花店", type: "商店", owner: "陈晓燕", bounds: [167, 36, 170, 38], color: "#e91e63", entrance: [168, 38] },
+    { id: "clothes_shop", name: "林玉芳服装店", type: "商店", owner: "林玉芳", bounds: [132, 36, 135, 38], color: "#9c27b0", entrance: [133, 38] },
+    { id: "yunfei_home", name: "张文博家", type: "住宅", owner: "张文博", bounds: [92, 183, 94, 185], color: "#4caf50", entrance: [93, 183] },
+    { id: "qilinlin_home", name: "李秀兰家", type: "住宅", owner: "李秀兰", bounds: [167, 183, 169, 185], color: "#2196f3", entrance: [168, 183] },
+    { id: "liukun_home", name: "陈德厚家", type: "住宅", owner: "陈德厚", bounds: [132, 183, 134, 185], color: "#795548", entrance: [133, 183] },
+    { id: "wheat_field", name: "麦田", type: "农田", bounds: [250, 126, 260, 136], color: "#ffc107" },
+    { id: "square", name: "小广场", type: "公共", bounds: [24, 126, 29, 131], color: "#607d8b" },
   ],
 
-  // 出生点
   spawnPoints: [
-    { id: "yunfei", x: 34, y: 70, type: "player" },
-    { id: "qilinlin", x: 59, y: 70, type: "npc" },
-    { id: "liukun", x: 88, y: 48, type: "npc" },  // 农民在农田
-    { id: "wuping", x: 35, y: 18, type: "npc" },
-    { id: "yunxiang", x: 60, y: 18, type: "npc" },
-    { id: "huqian", x: 47, y: 18, type: "npc" },
+    { id: "yunfei", x: 93, y: 178, type: "player" },
+    { id: "qilinlin", x: 168, y: 178, type: "npc" },
+    { id: "liukun", x: 255, y: 140, type: "npc" },
+    { id: "wuping", x: 93, y: 42, type: "npc" },
+    { id: "yunxiang", x: 168, y: 42, type: "npc" },
+    { id: "huqian", x: 133, y: 42, type: "npc" },
   ],
 };
 

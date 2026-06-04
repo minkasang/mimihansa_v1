@@ -115,6 +115,57 @@ export function createModuleRegistry(): ModuleRegistry {
     return null;
   });
 
+  registry.register("cmd_start_dialogue", (ctx, params): ModuleResult | null => {
+    if (!ctx.dialogueSystem) return null;
+
+    const intentId = params.intent_id as string;
+    const speakerNPC = params.speaker_npc as any;
+    const targetNPC = params.target_npc as any;
+    const variables = params.variables as Record<string, string> || {};
+    const affection = params.affection as number || 0;
+
+    if (!speakerNPC || !targetNPC) return null;
+
+    const intent = (ctx.dialogueSystem as any).intentLib?.find((i: any) => i.意图id === intentId);
+    if (!intent) return null;
+
+    const packet = {
+      意图id: intent.意图id,
+      名称: intent.名称,
+      语气: "neutral",
+      主动方NPC: {
+        id: speakerNPC.id,
+        姓名: speakerNPC.姓名 || speakerNPC.id,
+        性格: speakerNPC.性格 || {},
+        标签: speakerNPC.标签 || [],
+      },
+      被动方NPC: {
+        id: targetNPC.id,
+        姓名: targetNPC.姓名 || targetNPC.id,
+        性格: targetNPC.性格 || {},
+        好感度: affection,
+        标签: targetNPC.标签 || [],
+      },
+      变量: variables,
+      环境: params.environment || { 公开场合: true, 是否白天: true },
+    };
+
+    const dialogues = (ctx.dialogueSystem as any).startDialogueScene(intent, packet);
+    if (dialogues && dialogues.length > 0) {
+      const first = dialogues[0];
+      return {
+        type: "dialogue",
+        data: {
+          text: first.text,
+          duration: first.duration || 4000,
+          dialogueType: "speak",
+          _dialogues: dialogues,
+        },
+      };
+    }
+    return null;
+  });
+
   // ============= C类：交互与社交 =============
 
   registry.register("look_at", (ctx, params): ModuleResult | null => {

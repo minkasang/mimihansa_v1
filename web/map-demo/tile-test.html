@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>子瓦片自动拼接测试</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #1a1a2e; font-family: 'Microsoft YaHei', sans-serif; display: flex; flex-direction: column; align-items: center; padding: 20px; color: #fff; }
+    h1 { margin-bottom: 6px; font-size: 18px; color: #e94560; }
+    .subtitle { font-size: 12px; color: #888; margin-bottom: 16px; }
+    #map-canvas { image-rendering: pixelated; border: 2px solid #0f3460; margin-bottom: 12px; }
+    .tools { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; align-items: center; margin-bottom: 12px; }
+    .tools button { padding: 8px 16px; border: 1px solid #0f3460; background: #16213e; color: #fff; border-radius: 4px; cursor: pointer; font-size: 13px; }
+    .tools button:hover { background: #e94560; }
+    .tools button.active { background: #e94560; }
+    .tools span { font-size: 12px; color: #aaa; padding: 0 4px; }
+    .info { font-size: 12px; color: #888; text-align: center; margin-bottom: 8px; }
+    .legend { display: flex; gap: 16px; font-size: 11px; color: #aaa; }
+    .legend span::before { content: '■ '; font-size: 14px; }
+    .legend .grass::before { color: #6baa3d; }
+    .legend .dirt::before { color: #8d6e63; }
+    .legend .road::before { color: #bdb09a; }
+    .legend .water::before { color: #42a5f5; }
+  </style>
+</head>
+<body>
+  <h1>🗺️ 子瓦片自动拼接渲染测试</h1>
+  <p class="subtitle">逻辑格=32px, 子瓦片=8px(4×4), 位掩码自动过渡 | 鼠标点击=挖土, Shift+点击=铺路, Ctrl+点击=恢复草地</p>
+  
+  <canvas id="map-canvas"></canvas>
+  
+  <div class="tools">
+    <button id="btn-dig" class="active">🪨 挖土 (Q)</button>
+    <button id="btn-pave">🛤️ 铺路 (W)</button>
+    <button id="btn-grass">🌿 恢复草地 (E)</button>
+    <span>|</span>
+    <button id="btn-water">💧 变水域 (R)</button>
+    <span>|</span>
+    <label style="font-size:12px;color:#aaa;">画笔大小:</label>
+    <select id="brush-size">
+      <option value="1">1×1</option>
+      <option value="2">2×2</option>
+      <option value="3" selected>3×3</option>
+    </select>
+    <span>|</span>
+    <button id="btn-reset">🔄 重置地图</button>
+  </div>
+  
+  <div class="info">
+    点击地图格子修改地形 | 当前工具: <strong id="current-tool">挖土</strong> | 地图: 20×15 格 (320×240px子瓦片)
+  </div>
+  <div class="legend">
+    <span class="grass">草地</span>
+    <span class="dirt">泥土</span>
+    <span class="road">道路</span>
+    <span class="water">水域</span>
+  </div>
+
+  <script type="module">
+    import { createGrassCell, createWaterCell, setSubTile, SUB_TILE_COUNT, SUB_TILE_SIZE, LOGIC_TILE_SIZE } from './src/world/gridCell.ts';
+    import { renderMap } from './src/render/tileRenderer.ts';
+
+    const W = 20, H = 15;
+    const canvas = document.getElementById('map-canvas');
+    canvas.width = W * LOGIC_TILE_SIZE;
+    canvas.height = H * LOGIC_TILE_SIZE;
+    const ctx = canvas.getContext('2d');
+
+    // 初始化地图
+    let grid = [];
+    function initGrid() {
+      grid = [];
+      for (let y = 0; y < H; y++) {
+        grid[y] = [];
+        for (let x = 0; x < W; x++) {
+          if (y >= 6 && y <= 7 && x >= 3 && x <= 16) {
+            grid[y][x] = createWaterCell(x, y);
+          } else {
+            grid[y][x] = createGrassCell(x, y);
+          }
+        }
+      }
+    }
+    initGrid();
+
+    // 当前工具
+    let tool = 'dig';
+    let brushSize = 3;
+    document.getElementById('btn-dig').addEventListener('click', () => { tool = 'dig'; updateUI(); });
+    document.getElementById('btn-pave').addEventListener('click', () => { tool = 'pave'; updateUI(); });
+    document.getElementById('btn-grass').addEventListener('click', () => { tool = 'grass'; updateUI(); });
+    document.getElementById('btn-water').addEventListener('click', () => { tool = 'water'; updateUI(); });
+    document.getElementById('brush-size').addEventListener('change', e => { brushSize = +e.target.value; });
+    document.getElementById('btn-reset').addEventListener('click', () => { initGrid(); redraw(); });
+    document.addEventListener('keydown', e => {
+      if (e.key === 'q') { tool = 'dig'; updateUI(); }
+      if (e.key === 'w') { tool = 'pave'; updateUI(); }
+      if (e.key === 'e') { tool = 'grass'; updateUI(); }
+      if (e.key === 'r') { tool = 'water'; updateUI(); }
+    });
+
+    function updateUI() {
+      document.getElementById('btn-dig').classList.toggle('active', tool === 'dig');
+      document.getElementById('btn-pave').classList.toggle('active', tool === 'pave');
+      document.getElementById('btn-grass').classList.toggle('active', tool === 'grass');
+      document.getElementById('btn-water').classList.toggle('active', tool === 'water');
+      const names = { dig: '🪨 挖土', pave: '🛤️ 铺路', grass: '🌿 恢复草地', water: '💧 变水域' };
+      document.getElementById('current-tool').textContent = names[tool];
+    }
+
+    function redraw() {
+      const mapCanvas = renderMap(grid, W, H);
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(mapCanvas, 0, 0);
+    }
+
+    canvas.addEventListener('click', e => {
+      const rect = canvas.getBoundingClientRect();
+      const mx = e.clientX - rect.left;
+      const my = e.clientY - rect.top;
+      const cellX = Math.floor(mx / LOGIC_TILE_SIZE);
+      const cellY = Math.floor(my / LOGIC_TILE_SIZE);
+      if (cellX < 0 || cellX >= W || cellY < 0 || cellY >= H) return;
+
+      const bs = brushSize;
+      for (let dy = 0; dy < bs; dy++) {
+        for (let dx = 0; dx < bs; dx++) {
+          const cx = cellX + dx - Math.floor(bs/2);
+          const cy = cellY + dy - Math.floor(bs/2);
+          if (cx < 0 || cx >= W || cy < 0 || cy >= H) continue;
+          const cell = grid[cy][cx];
+          
+          if (tool === 'dig') {
+            // 挖土：把部分子瓦片变成泥土（模拟渐进的挖土效果）
+            for (let sy = 0; sy < SUB_TILE_COUNT; sy++) {
+              for (let sx = 0; sx < SUB_TILE_COUNT; sx++) {
+                // 最边缘的子瓦片保持草地（模拟自然过渡）
+                const edgeDist = Math.min(sx, sy, 3-sx, 3-sy);
+                if (edgeDist >= 1 && Math.random() < 0.85) {
+                  setSubTile(cell, sx, sy, 'dirt');
+                }
+              }
+            }
+          } else if (tool === 'pave') {
+            // 铺路：中间子瓦片变道路（模拟走路踏出的路）
+            for (let sy = 0; sy < SUB_TILE_COUNT; sy++) {
+              for (let sx = 0; sx < SUB_TILE_COUNT; sx++) {
+                const edgeDist = Math.min(sx, sy, 3-sx, 3-sy);
+                if (edgeDist >= 1) setSubTile(cell, sx, sy, 'road');
+              }
+            }
+          } else if (tool === 'grass') {
+            // 恢复草地：清空所有子瓦片覆盖
+            cell.子瓦片 = Array(16).fill(null);
+            cell.地形 = 'grass';
+          } else if (tool === 'water') {
+            cell.地形 = 'water';
+            cell.子瓦片 = Array(16).fill(null);
+          }
+        }
+      }
+      redraw();
+    });
+
+    // 初始渲染
+    redraw();
+    console.log('✅ 子瓦片自动拼接渲染测试已就绪');
+  </script>
+</body>
+</html>

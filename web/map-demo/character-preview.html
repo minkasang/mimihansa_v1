@@ -1,0 +1,1038 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>角色精灵图预览 - 商业化级生成器</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Microsoft YaHei', sans-serif;
+      background: #1a1a2e;
+      color: #fff;
+      padding: 20px;
+      min-height: 100vh;
+    }
+
+    h1 {
+      text-align: center;
+      color: #4fc3f7;
+      margin-bottom: 10px;
+      font-size: 24px;
+    }
+
+    .subtitle {
+      text-align: center;
+      color: #888;
+      margin-bottom: 30px;
+      font-size: 14px;
+    }
+
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+
+    .controls {
+      background: #16213e;
+      padding: 20px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      display: flex;
+      gap: 15px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    button {
+      padding: 10px 20px;
+      background: #1565c0;
+      border: none;
+      color: #fff;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+      transition: background 0.2s;
+    }
+
+    button:hover {
+      background: #1976d2;
+    }
+
+    button.secondary {
+      background: #5d4037;
+    }
+
+    button.secondary:hover {
+      background: #6d4c41;
+    }
+
+    button.success {
+      background: #2e7d32;
+    }
+
+    button.success:hover {
+      background: #388e3c;
+    }
+
+    .character-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+      gap: 20px;
+    }
+
+    .character-card {
+      background: #16213e;
+      border-radius: 8px;
+      padding: 15px;
+      border: 1px solid #0f3460;
+    }
+
+    .character-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 15px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid #0f3460;
+    }
+
+    .character-name {
+      color: #4fc3f7;
+      font-weight: bold;
+      font-size: 16px;
+    }
+
+    .character-gender {
+      padding: 4px 12px;
+      border-radius: 12px;
+      font-size: 12px;
+    }
+
+    .character-gender.male {
+      background: #1565c0;
+    }
+
+    .character-gender.female {
+      background: #c2185b;
+    }
+
+    .sprite-preview {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 15px;
+      overflow-x: auto;
+      padding: 10px;
+      background: #0d1b2a;
+      border-radius: 4px;
+    }
+
+    .sprite-frame {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .sprite-frame canvas {
+      image-rendering: pixelated;
+      border: 1px solid #333;
+      background: #1a1a2e;
+    }
+
+    .sprite-frame label {
+      font-size: 10px;
+      color: #666;
+    }
+
+    .character-attributes {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+      margin-bottom: 15px;
+    }
+
+    .attribute {
+      display: flex;
+      justify-content: space-between;
+      font-size: 13px;
+    }
+
+    .attribute-name {
+      color: #888;
+    }
+
+    .attribute-value {
+      color: #4fc3f7;
+    }
+
+    .action-buttons {
+      display: flex;
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    .action-buttons button {
+      flex: 1;
+      padding: 8px;
+      font-size: 12px;
+    }
+
+    .stats {
+      background: #16213e;
+      padding: 20px;
+      border-radius: 8px;
+      margin-top: 20px;
+    }
+
+    .stats h3 {
+      color: #4fc3f7;
+      margin-bottom: 15px;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 60px;
+      color: #666;
+    }
+
+    .zoomed-preview {
+      display: flex;
+      gap: 20px;
+      margin-bottom: 15px;
+    }
+
+    .zoomed-frame {
+      text-align: center;
+    }
+
+    .zoomed-frame canvas {
+      image-rendering: pixelated;
+      border: 2px solid #0f3460;
+      background: #1a1a2e;
+    }
+
+    .zoomed-frame label {
+      display: block;
+      margin-top: 5px;
+      font-size: 12px;
+      color: #888;
+    }
+  </style>
+</head>
+<body>
+  <h1>🎭 角色精灵图预览</h1>
+  <p class="subtitle">商业化级程序化生成器 - 32×48像素 8帧精灵表</p>
+
+  <div class="container">
+    <div class="controls">
+      <button onclick="generatePresetCharacters()">🎲 生成预设角色</button>
+      <button class="secondary" onclick="generateRandomCharacters()">🎲 生成随机角色</button>
+      <button class="success" onclick="downloadAllSprites()">💾 下载所有精灵图</button>
+    </div>
+
+    <div id="character-container" class="character-grid">
+      <div class="empty-state">
+        点击"生成预设角色"或"生成随机角色"按钮开始预览
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    // 导入生成器（使用内联代码模拟，实际项目中使用import）
+    // 这里直接内联核心生成逻辑用于预览
+
+    // ============ 类型定义 ============
+    const SKIN_COLORS = {
+      白皙: { base: "#FFEFE0", shadow: "#F5D0B0", highlight: "#FFF5F0" },
+      暖色: { base: "#F5D0B0", shadow: "#E8C4A0", highlight: "#FFE8D0" },
+      麦色: { base: "#E8C4A0", shadow: "#D4A574", highlight: "#F5D0B0" },
+      深色: { base: "#C49464", shadow: "#A67B5B", highlight: "#E8C4A0" },
+    };
+
+    const HAIR_COLORS = {
+      黑色: { base: "#1A1A1A", shadow: "#0D0D0D", highlight: "#2D2D2D" },
+      深棕: { base: "#4A2408", shadow: "#2D1505", highlight: "#6B3410" },
+      浅棕: { base: "#8B4513", shadow: "#6B3410", highlight: "#A0522D" },
+      金色: { base: "#D4A574", shadow: "#B8956A", highlight: "#E8C4A0" },
+      红色: { base: "#A0522D", shadow: "#7A3E22", highlight: "#C49464" },
+      灰色: { base: "#808080", shadow: "#666666", highlight: "#999999" },
+    };
+
+    const CLOTHING_PALETTES = {
+      朴素: { primary: "#8B7355", secondary: "#6B5344", accent: "#A0826D" },
+      普通: { primary: "#5B8A72", secondary: "#4A7260", accent: "#6B9B82" },
+      讲究: { primary: "#4A6FA5", secondary: "#3A5F95", accent: "#5A7FB5" },
+      华丽: { primary: "#8B4513", secondary: "#6B3410", accent: "#D4A574" },
+      时髦: { primary: "#C44569", secondary: "#A03555", accent: "#E05579" },
+    };
+
+    // ============ 预设角色 ============
+    const PRESET_CHARACTERS = {
+      精神小伙: {
+        身高: "中等", 体型: "标准", 肤色: "暖色", 发色: "黑色", 发型: "短发",
+        眼睛: "大眼", 脸型: "圆脸", 表情: "开朗大笑", 穿衣风格: "普通",
+        年龄: "青年", 性别: "男",
+      },
+      时髦少女: {
+        身高: "中等", 体型: "瘦", 肤色: "白皙", 发色: "金色", 发型: "长发",
+        眼睛: "圆眼", 脸型: "瓜子脸", 表情: "温和微笑", 穿衣风格: "时髦",
+        年龄: "青年", 性别: "女",
+      },
+      沉稳工匠: {
+        身高: "中等", 体型: "壮", 肤色: "麦色", 发色: "黑色", 发型: "短发",
+        眼睛: "小眼", 脸型: "方脸", 表情: "严肃认真", 穿衣风格: "朴素",
+        年龄: "中年", 性别: "男",
+      },
+      慈祥老奶奶: {
+        身高: "矮小", 体型: "胖", 肤色: "暖色", 发色: "灰色", 发型: "束发",
+        眼睛: "中等", 脸型: "圆脸", 表情: "温和微笑", 穿衣风格: "朴素",
+        年龄: "老年", 性别: "女",
+      },
+      痞气青年: {
+        身高: "高挑", 体型: "瘦", 肤色: "白皙", 发色: "红色", 发型: "中长",
+        眼睛: "上挑", 脸型: "长脸", 表情: "高傲冷漠", 穿衣风格: "时髦",
+        年龄: "青年", 性别: "男",
+      },
+      可爱胖小孩: {
+        身高: "矮小", 体型: "胖", 肤色: "暖色", 发色: "浅棕", 发型: "卷发",
+        眼睛: "圆眼", 脸型: "圆脸", 表情: "呆萌天然", 穿衣风格: "普通",
+        年龄: "小孩", 性别: "男",
+      },
+      瘦弱书生: {
+        身高: "中等", 体型: "瘦", 肤色: "白皙", 发色: "黑色", 发型: "中长",
+        眼睛: "中等", 脸型: "长脸", 表情: "忧郁沉默", 穿衣风格: "朴素",
+        年龄: "青年", 性别: "男",
+      },
+      凶悍壮汉: {
+        身高: "中等", 体型: "壮", 肤色: "深色", 发色: "黑色", 发型: "光头",
+        眼睛: "小眼", 脸型: "方脸", 表情: "严肃认真", 穿衣风格: "朴素",
+        年龄: "中年", 性别: "男",
+      },
+    };
+
+    // ============ 像素绘制工具 ============
+    class PixelDrawer {
+      constructor(ctx) {
+        this.ctx = ctx;
+      }
+
+      rect(x, y, w, h, color) {
+        this.ctx.fillStyle = color;
+        this.ctx.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h));
+      }
+
+      circle(x, y, r, color) {
+        this.ctx.fillStyle = color;
+        this.ctx.beginPath();
+        this.ctx.arc(Math.round(x) + 0.5, Math.round(y) + 0.5, r, 0, Math.PI * 2);
+        this.ctx.fill();
+      }
+
+      ellipse(x, y, rx, ry, color) {
+        this.ctx.fillStyle = color;
+        this.ctx.beginPath();
+        this.ctx.ellipse(Math.round(x) + 0.5, Math.round(y) + 0.5, rx, ry, 0, 0, Math.PI * 2);
+        this.ctx.fill();
+      }
+
+      pixel(x, y, color) {
+        this.ctx.fillStyle = color;
+        this.ctx.fillRect(Math.round(x), Math.round(y), 1, 1);
+      }
+
+      hLine(x, y, w, color) {
+        this.ctx.fillStyle = color;
+        this.ctx.fillRect(Math.round(x), Math.round(y), Math.round(w), 1);
+      }
+    }
+
+    // ============ 角色精灵图生成器 ============
+    class CharacterSpriteGenerator {
+      generateSpriteSheet(appearance) {
+        const canvas = document.createElement("canvas");
+        canvas.width = 32 * 8; // 8帧水平排列
+        canvas.height = 48;
+        const ctx = canvas.getContext("2d");
+
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        const directions = ["down", "up", "left", "right"];
+        for (let dirIndex = 0; dirIndex < directions.length; dirIndex++) {
+          for (let frame = 0; frame < 2; frame++) {
+            const x = (dirIndex * 2 + frame) * 32;
+            this.drawFrame(ctx, x, 0, appearance, directions[dirIndex], frame);
+          }
+        }
+
+        return canvas;
+      }
+
+      drawFrame(ctx, x, y, appearance, direction, frame) {
+        ctx.save();
+        ctx.translate(x, y);
+
+        const d = new PixelDrawer(ctx);
+        const skin = SKIN_COLORS[appearance.肤色];
+        const hair = HAIR_COLORS[appearance.发色];
+        const clothes = CLOTHING_PALETTES[appearance.穿衣风格];
+
+        const walkOffset = this.getWalkOffset(frame);
+        const bodyScale = this.getBodyScale(appearance.体型);
+        const heightScale = this.getHeightScale(appearance.身高);
+        const ageScale = this.getAgeScale(appearance.年龄);
+
+        // 绘制顺序（从下到上）
+        this.drawShadow(d);
+        this.drawLegs(d, appearance, direction, walkOffset, bodyScale, heightScale);
+        this.drawBody(d, appearance, direction, walkOffset, bodyScale, heightScale, clothes);
+        this.drawArms(d, appearance, direction, walkOffset, bodyScale, heightScale, clothes, skin);
+        this.drawHead(d, appearance, direction, bodyScale, heightScale, ageScale, skin, hair);
+
+        ctx.restore();
+      }
+
+      drawShadow(d) {
+        d.ellipse(16, 46, 10, 3, "rgba(0,0,0,0.2)");
+      }
+
+      drawLegs(d, appearance, direction, walkOffset, bodyScale, heightScale) {
+        const legY = 32;
+        const legWidth = Math.max(3, Math.round(4 * bodyScale));
+        const legHeight = Math.round(14 * heightScale);
+        const pantsColor = CLOTHING_PALETTES[appearance.穿衣风格].secondary;
+        const pantsShadow = this.darkenColor(pantsColor, 0.8);
+
+        if (direction === "down") {
+          const leftLegX = 16 - legWidth - 1 + walkOffset.leftLeg;
+          const rightLegX = 16 + 1 + walkOffset.rightLeg;
+
+          d.rect(leftLegX, legY, legWidth, legHeight, pantsColor);
+          d.rect(leftLegX + legWidth - 1, legY, 1, legHeight, pantsShadow);
+
+          d.rect(rightLegX, legY, legWidth, legHeight, pantsColor);
+          d.rect(rightLegX + legWidth - 1, legY, 1, legHeight, pantsShadow);
+
+          this.drawShoes(d, leftLegX - 1, rightLegX + legWidth, legY + legHeight - 2, direction);
+        } else if (direction === "up") {
+          d.rect(16 - legWidth - 1, legY, legWidth, legHeight, pantsColor);
+          d.rect(16 + 1, legY, legWidth, legHeight, pantsColor);
+          this.drawShoes(d, 16 - legWidth - 2, 16 + legWidth + 1, legY + legHeight - 2, direction);
+        } else {
+          const isLeft = direction === "left";
+          const offsetX = isLeft ? -2 : 2;
+          const legOffset = isLeft ? walkOffset.leftLeg : walkOffset.rightLeg;
+
+          d.rect(16 + offsetX - Math.floor(legWidth / 2), legY + Math.abs(legOffset), legWidth, legHeight, pantsColor);
+          d.rect(16 + offsetX + (isLeft ? 1 : -Math.floor(legWidth / 2)), legY, 1, legHeight, pantsShadow);
+          this.drawShoes(d, 16 + offsetX - 3, 16 + offsetX + 3, legY + legHeight - 2, direction);
+        }
+      }
+
+      drawBody(d, appearance, direction, walkOffset, bodyScale, heightScale, clothes) {
+        const bodyY = 20 + walkOffset.body;
+        const bodyWidth = Math.round(14 * bodyScale);
+        const bodyHeight = Math.round(14 * heightScale);
+        const centerX = 16;
+
+        if (direction === "down") {
+          d.rect(centerX - bodyWidth / 2, bodyY, bodyWidth, bodyHeight, clothes.primary);
+          d.rect(centerX - bodyWidth / 2, bodyY + bodyHeight - 4, bodyWidth, 4, clothes.secondary);
+          d.rect(centerX + bodyWidth / 2 - 2, bodyY, 2, bodyHeight, clothes.secondary);
+          d.rect(centerX - bodyWidth / 2 + 1, bodyY, 3, bodyHeight - 4, clothes.accent);
+          d.rect(centerX - 2, bodyY, 4, 2, SKIN_COLORS[appearance.肤色].base);
+        } else if (direction === "up") {
+          d.rect(centerX - bodyWidth / 2, bodyY, bodyWidth, bodyHeight, clothes.primary);
+          d.rect(centerX - bodyWidth / 2, bodyY, bodyWidth, 3, clothes.secondary);
+        } else {
+          const isLeft = direction === "left";
+          const offsetX = isLeft ? 1 : -1;
+          d.rect(centerX + offsetX - bodyWidth / 2, bodyY, bodyWidth, bodyHeight, clothes.primary);
+          d.rect(centerX + offsetX - bodyWidth / 2, bodyY + bodyHeight - 4, bodyWidth, 4, clothes.secondary);
+          if (isLeft) {
+            d.rect(centerX + offsetX + bodyWidth / 2 - 2, bodyY, 2, bodyHeight, clothes.secondary);
+          } else {
+            d.rect(centerX + offsetX - bodyWidth / 2, bodyY, 2, bodyHeight, clothes.secondary);
+          }
+        }
+      }
+
+      drawArms(d, appearance, direction, walkOffset, bodyScale, heightScale, clothes, skin) {
+        const armY = 22;
+        const armWidth = 3;
+        const armHeight = Math.round(10 * heightScale);
+        const centerX = 16;
+
+        if (direction === "down") {
+          const leftArmX = centerX - Math.round(7 * bodyScale) - armWidth + walkOffset.leftArm;
+          const rightArmX = centerX + Math.round(7 * bodyScale) + walkOffset.rightArm;
+
+          d.rect(leftArmX, armY, armWidth, armHeight, clothes.primary);
+          d.rect(leftArmX, armY + armHeight, armWidth, 2, skin.base);
+
+          d.rect(rightArmX, armY, armWidth, armHeight, clothes.primary);
+          d.rect(rightArmX, armY + armHeight, armWidth, 2, skin.base);
+        } else if (direction === "up") {
+          d.rect(centerX - Math.round(7 * bodyScale) - armWidth, armY, armWidth, armHeight, clothes.primary);
+          d.rect(centerX + Math.round(7 * bodyScale), armY, armWidth, armHeight, clothes.primary);
+        } else {
+          const isLeft = direction === "left";
+          const armX = isLeft
+            ? centerX + Math.round(5 * bodyScale) + walkOffset.rightArm
+            : centerX - Math.round(5 * bodyScale) - armWidth + walkOffset.leftArm;
+
+          d.rect(armX, armY, armWidth, armHeight, clothes.primary);
+          d.rect(armX, armY + armHeight, armWidth, 2, skin.base);
+        }
+      }
+
+      drawHead(d, appearance, direction, bodyScale, heightScale, ageScale, skin, hair) {
+        const centerX = 16;
+        const headY = 4;
+        const headWidth = Math.round(18 * ageScale);
+        const headHeight = Math.round(16 * ageScale);
+
+        this.drawFaceShape(d, centerX, headY, headWidth, headHeight, appearance.脸型, skin);
+        this.drawHair(d, centerX, headY, headWidth, headHeight, appearance, direction, hair);
+
+        if (direction !== "up") {
+          this.drawEyes(d, centerX, headY, appearance, direction, ageScale);
+          this.drawEyebrows(d, centerX, headY, appearance, direction);
+          this.drawNose(d, centerX, headY, appearance, direction);
+          this.drawMouth(d, centerX, headY, appearance, direction);
+        }
+
+        this.drawEars(d, centerX, headY, headWidth, headHeight, skin, direction);
+        this.drawFaceDetails(d, centerX, headY, appearance, direction);
+      }
+
+      drawFaceShape(d, centerX, headY, headWidth, headHeight, faceShape, skin) {
+        d.ellipse(centerX, headY + headHeight / 2, headWidth / 2, headHeight / 2, skin.base);
+
+        switch (faceShape) {
+          case "方脸":
+            d.rect(centerX - headWidth / 2 + 2, headY + headHeight - 4, headWidth - 4, 4, skin.base);
+            break;
+          case "瓜子脸":
+            d.rect(centerX - 2, headY + headHeight - 2, 4, 2, skin.base);
+            break;
+        }
+
+        d.ellipse(centerX + 1, headY + headHeight / 2 + 1, headWidth / 2 - 2, headHeight / 2 - 2, skin.shadow);
+      }
+
+      drawHair(d, centerX, headY, headWidth, headHeight, appearance, direction, hair) {
+        if (appearance.发型 === "光头") return;
+
+        const hairY = headY - 2;
+
+        if (direction === "down") {
+          this.drawHairFront(d, centerX, hairY, headWidth, headHeight, appearance, hair);
+        } else if (direction === "up") {
+          this.drawHairBack(d, centerX, hairY, headWidth, headHeight, appearance, hair);
+        } else {
+          this.drawHairSide(d, centerX, hairY, headWidth, headHeight, appearance, direction, hair);
+        }
+      }
+
+      drawHairFront(d, centerX, hairY, headWidth, headHeight, appearance, hair) {
+        d.ellipse(centerX, hairY + 4, headWidth / 2 + 1, 5, hair.base);
+
+        switch (appearance.发型) {
+          case "短发":
+            d.rect(centerX - headWidth / 2, hairY + 4, headWidth, 4, hair.base);
+            break;
+          case "中长":
+            d.rect(centerX - headWidth / 2 - 1, hairY + 4, headWidth + 2, 6, hair.base);
+            d.rect(centerX - headWidth / 2 - 2, hairY + 6, 3, 8, hair.base);
+            d.rect(centerX + headWidth / 2 - 1, hairY + 6, 3, 8, hair.base);
+            break;
+          case "长发":
+            d.rect(centerX - headWidth / 2 - 1, hairY + 4, headWidth + 2, 6, hair.base);
+            d.rect(centerX - headWidth / 2 - 3, hairY + 6, 4, 14, hair.base);
+            d.rect(centerX + headWidth / 2 - 1, hairY + 6, 4, 14, hair.base);
+            break;
+          case "束发":
+            d.rect(centerX - headWidth / 2, hairY + 4, headWidth, 4, hair.base);
+            d.circle(centerX, hairY - 2, 4, hair.base);
+            break;
+          case "卷发":
+            d.ellipse(centerX, hairY + 4, headWidth / 2 + 3, 6, hair.base);
+            d.ellipse(centerX - 4, hairY + 6, 3, 4, hair.base);
+            d.ellipse(centerX + 4, hairY + 6, 3, 4, hair.base);
+            break;
+        }
+
+        d.ellipse(centerX - 2, hairY + 2, 3, 2, hair.highlight);
+      }
+
+      drawHairBack(d, centerX, hairY, headWidth, headHeight, appearance, hair) {
+        d.ellipse(centerX, hairY + 4, headWidth / 2 + 1, 5, hair.base);
+
+        switch (appearance.发型) {
+          case "短发":
+            d.rect(centerX - headWidth / 2, hairY + 4, headWidth, 5, hair.base);
+            break;
+          case "中长":
+          case "长发":
+            d.rect(centerX - headWidth / 2 - 1, hairY + 4, headWidth + 2, 6, hair.base);
+            d.rect(centerX - headWidth / 2 - 2, hairY + 8, headWidth + 4, 12, hair.base);
+            d.rect(centerX - headWidth / 2, hairY + 16, headWidth, 6, hair.shadow);
+            break;
+          case "束发":
+            d.rect(centerX - headWidth / 2, hairY + 4, headWidth, 5, hair.base);
+            d.circle(centerX, hairY - 2, 4, hair.base);
+            break;
+          case "卷发":
+            d.ellipse(centerX, hairY + 4, headWidth / 2 + 3, 6, hair.base);
+            break;
+        }
+      }
+
+      drawHairSide(d, centerX, hairY, headWidth, headHeight, appearance, direction, hair) {
+        const isLeft = direction === "left";
+        const offsetX = isLeft ? 2 : -2;
+
+        d.ellipse(centerX + offsetX, hairY + 4, headWidth / 2, 5, hair.base);
+
+        switch (appearance.发型) {
+          case "短发":
+            d.rect(centerX + offsetX - headWidth / 2, hairY + 4, headWidth, 5, hair.base);
+            break;
+          case "中长":
+            d.rect(centerX + offsetX - headWidth / 2, hairY + 4, headWidth, 6, hair.base);
+            d.rect(centerX + (isLeft ? -headWidth / 2 - 2 : headWidth / 2 - 2), hairY + 6, 4, 10, hair.base);
+            break;
+          case "长发":
+            d.rect(centerX + offsetX - headWidth / 2, hairY + 4, headWidth, 6, hair.base);
+            d.rect(centerX + (isLeft ? -headWidth / 2 - 3 : headWidth / 2 - 1), hairY + 6, 4, 14, hair.base);
+            break;
+          case "束发":
+            d.rect(centerX + offsetX - headWidth / 2, hairY + 4, headWidth, 5, hair.base);
+            d.circle(centerX + offsetX, hairY - 2, 4, hair.base);
+            break;
+          case "卷发":
+            d.ellipse(centerX + offsetX, hairY + 4, headWidth / 2 + 2, 6, hair.base);
+            break;
+        }
+      }
+
+      drawEyes(d, centerX, headY, appearance, direction, ageScale) {
+        const eyeY = headY + 8;
+        const eyeColor = "#2d5016";
+        const pupilColor = "#1a1a1a";
+
+        if (direction === "down") {
+          const eyeSize = this.getEyeSize(appearance.眼睛);
+          const eyeSpacing = 6;
+
+          this.drawSingleEye(d, centerX - eyeSpacing, eyeY, eyeSize, eyeColor, pupilColor, appearance.眼睛);
+          this.drawSingleEye(d, centerX + eyeSpacing, eyeY, eyeSize, eyeColor, pupilColor, appearance.眼睛);
+        } else {
+          const eyeSize = this.getEyeSize(appearance.眼睛) * 0.8;
+          const eyeX = direction === "left" ? centerX + 3 : centerX - 3;
+          this.drawSingleEye(d, eyeX, eyeY, eyeSize, eyeColor, pupilColor, appearance.眼睛);
+        }
+      }
+
+      drawSingleEye(d, x, y, size, eyeColor, pupilColor, eyeType) {
+        d.ellipse(x, y, size, size * 1.2, "#ffffff");
+        d.ellipse(x, y, size * 0.7, size * 0.9, eyeColor);
+        d.circle(x, y, size * 0.4, pupilColor);
+        d.circle(x + size * 0.2, y - size * 0.2, size * 0.25, "#ffffff");
+
+        switch (eyeType) {
+          case "小眼":
+            d.rect(x - size - 1, y - size * 0.8, size * 2 + 2, size * 0.6, "#F5D0B0");
+            break;
+          case "下垂眼":
+            d.rect(x - size, y + size * 0.5, size * 2, size * 0.5, "#F5D0B0");
+            break;
+          case "上挑眼":
+            d.rect(x - size, y - size * 0.8, size * 2, size * 0.3, "#F5D0B0");
+            break;
+        }
+      }
+
+      drawEyebrows(d, centerX, headY, appearance, direction) {
+        const browY = headY + 5;
+        const hair = HAIR_COLORS[appearance.发色];
+
+        if (direction === "down") {
+          const browSpacing = 6;
+          const browWidth = 4;
+          const browHeight = 1;
+
+          this.drawEyebrowShape(d, centerX - browSpacing, browY, browWidth, browHeight, appearance.表情, hair.base, true);
+          this.drawEyebrowShape(d, centerX + browSpacing, browY, browWidth, browHeight, appearance.表情, hair.base, false);
+        } else {
+          const browX = direction === "left" ? centerX + 3 : centerX - 3;
+          this.drawEyebrowShape(d, browX, browY, 3, 1, appearance.表情, hair.base, direction === "left");
+        }
+      }
+
+      drawEyebrowShape(d, x, y, width, height, expression, color, isLeft) {
+        switch (expression) {
+          case "严肃认真":
+            d.rect(x - width / 2, y, width, height, color);
+            break;
+          case "温和微笑":
+            d.rect(x - width / 2, y, width, height, color);
+            d.pixel(x + (isLeft ? -width / 2 : width / 2), y - 1, color);
+            break;
+          case "开朗大笑":
+            d.rect(x - width / 2, y - 1, width, height, color);
+            d.pixel(x + (isLeft ? -width / 2 : width / 2), y - 2, color);
+            break;
+          case "忧郁沉默":
+            d.rect(x - width / 2, y + 1, width, height, color);
+            d.pixel(x + (isLeft ? width / 2 : -width / 2), y, color);
+            break;
+          case "高傲冷漠":
+            d.rect(x - width / 2, y - 1, width, height, color);
+            d.pixel(x + (isLeft ? width / 2 : -width / 2), y - 2, color);
+            break;
+          case "呆萌天然":
+            d.rect(x - width / 2 + 1, y, width - 2, height, color);
+            break;
+        }
+      }
+
+      drawNose(d, centerX, headY, appearance, direction) {
+        const noseY = headY + 11;
+        const skin = SKIN_COLORS[appearance.肤色];
+
+        if (direction === "down") {
+          d.pixel(centerX, noseY, skin.shadow);
+          d.pixel(centerX - 1, noseY + 1, skin.base);
+          d.pixel(centerX + 1, noseY + 1, skin.base);
+        } else {
+          const offsetX = direction === "left" ? 2 : -2;
+          d.pixel(centerX + offsetX, noseY, skin.shadow);
+          d.pixel(centerX + offsetX, noseY + 1, skin.base);
+        }
+      }
+
+      drawMouth(d, centerX, headY, appearance, direction) {
+        const mouthY = headY + 14;
+        const lipColor = "#d4a574";
+
+        if (direction === "down") {
+          switch (appearance.表情) {
+            case "温和微笑":
+              d.pixel(centerX - 2, mouthY, lipColor);
+              d.pixel(centerX - 1, mouthY + 1, lipColor);
+              d.pixel(centerX, mouthY + 1, lipColor);
+              d.pixel(centerX + 1, mouthY + 1, lipColor);
+              d.pixel(centerX + 2, mouthY, lipColor);
+              break;
+            case "严肃认真":
+              d.hLine(centerX - 2, mouthY, 5, lipColor);
+              break;
+            case "开朗大笑":
+              d.rect(centerX - 2, mouthY, 5, 3, "#ffffff");
+              d.hLine(centerX - 2, mouthY, 5, lipColor);
+              d.hLine(centerX - 2, mouthY + 3, 5, lipColor);
+              break;
+            case "忧郁沉默":
+              d.pixel(centerX - 2, mouthY, lipColor);
+              d.pixel(centerX - 1, mouthY + 1, lipColor);
+              d.pixel(centerX, mouthY + 1, lipColor);
+              d.pixel(centerX + 1, mouthY + 1, lipColor);
+              d.pixel(centerX + 2, mouthY, lipColor);
+              break;
+            case "高傲冷漠":
+              d.hLine(centerX - 2, mouthY, 3, lipColor);
+              d.pixel(centerX + 1, mouthY - 1, lipColor);
+              break;
+            case "呆萌天然":
+              d.hLine(centerX - 1, mouthY, 3, lipColor);
+              d.pixel(centerX, mouthY + 1, "#ffffff");
+              break;
+          }
+        } else {
+          const offsetX = direction === "left" ? 1 : -1;
+          d.pixel(centerX + offsetX, mouthY, lipColor);
+          if (appearance.表情 === "开朗大笑") {
+            d.pixel(centerX + offsetX, mouthY + 1, "#ffffff");
+          }
+        }
+      }
+
+      drawEars(d, centerX, headY, headWidth, headHeight, skin, direction) {
+        const earY = headY + 8;
+
+        if (direction === "down") {
+          d.circle(centerX - headWidth / 2 - 1, earY, 2, skin.base);
+          d.circle(centerX + headWidth / 2 + 1, earY, 2, skin.base);
+        } else if (direction === "left") {
+          d.circle(centerX + headWidth / 2 + 1, earY, 2, skin.base);
+        } else if (direction === "right") {
+          d.circle(centerX - headWidth / 2 - 1, earY, 2, skin.base);
+        }
+      }
+
+      drawFaceDetails(d, centerX, headY, appearance, direction) {
+        if (appearance.年龄 === "老年") {
+          const wrinkleColor = "#b8956a";
+          d.hLine(centerX - 4, headY + 4, 9, wrinkleColor);
+          d.hLine(centerX - 3, headY + 5, 7, wrinkleColor);
+          if (direction === "down") {
+            d.pixel(centerX - 7, headY + 8, wrinkleColor);
+            d.pixel(centerX + 7, headY + 8, wrinkleColor);
+          }
+        }
+
+        if (appearance.性别 === "男" && appearance.年龄 !== "小孩") {
+          const beardColor = HAIR_COLORS[appearance.发色].shadow;
+          if (appearance.年龄 === "老年" || appearance.年龄 === "中年") {
+            if (direction === "down") {
+              d.rect(centerX - 3, headY + 13, 7, 2, beardColor);
+            }
+          }
+        }
+
+        if (appearance.肤色 === "白皙" && Math.random() > 0.7) {
+          const freckleColor = "#d4a574";
+          if (direction === "down") {
+            d.pixel(centerX - 4, headY + 10, freckleColor);
+            d.pixel(centerX + 3, headY + 11, freckleColor);
+            d.pixel(centerX - 2, headY + 12, freckleColor);
+          }
+        }
+      }
+
+      drawShoes(d, leftX, rightX, shoeY, direction) {
+        const shoeColor = "#3e2723";
+        const shoeDark = "#2d1b18";
+
+        if (direction === "down") {
+          d.rect(leftX, shoeY, 5, 3, shoeColor);
+          d.rect(rightX - 5, shoeY, 5, 3, shoeColor);
+          d.rect(leftX + 3, shoeY, 2, 3, shoeDark);
+          d.rect(rightX - 3, shoeY, 2, 3, shoeDark);
+        } else if (direction === "up") {
+          d.rect(leftX, shoeY, 5, 3, shoeColor);
+          d.rect(rightX - 5, shoeY, 5, 3, shoeColor);
+        } else {
+          d.rect(leftX, shoeY, 8, 3, shoeColor);
+          d.rect(direction === "left" ? leftX + 5 : leftX, shoeY, 3, 3, shoeDark);
+        }
+      }
+
+      getWalkOffset(frame) {
+        const cycle = [0, 1, 0, -1];
+        const offset = cycle[frame % 4] ?? 0;
+        return {
+          body: frame === 1 ? -1 : 0,
+          leftArm: -offset,
+          rightArm: offset,
+          leftLeg: offset,
+          rightLeg: -offset,
+        };
+      }
+
+      getBodyScale(bodyType) {
+        const scaleMap = { 瘦: 0.85, 标准: 1.0, 壮: 1.15, 胖: 1.25 };
+        return scaleMap[bodyType];
+      }
+
+      getHeightScale(height) {
+        const scaleMap = { 矮小: 0.92, 中等: 1.0, 高挑: 1.08 };
+        return scaleMap[height];
+      }
+
+      getAgeScale(age) {
+        const scaleMap = { 小孩: 1.15, 青年: 1.0, 中年: 1.0, 老年: 0.95 };
+        return scaleMap[age];
+      }
+
+      getEyeSize(eyeType) {
+        const sizeMap = { 大眼: 3, 中等: 2.5, 小眼: 2, 圆眼: 3, 细长: 2.5, 下垂: 2.5, 上挑: 2.5 };
+        return sizeMap[eyeType];
+      }
+
+      darkenColor(color, factor) {
+        const hex = color.replace("#", "");
+        const r = Math.floor(parseInt(hex.substring(0, 2), 16) * factor);
+        const g = Math.floor(parseInt(hex.substring(2, 4), 16) * factor);
+        const b = Math.floor(parseInt(hex.substring(4, 6), 16) * factor);
+        return `rgb(${r},${g},${b})`;
+      }
+    }
+
+    // ============ UI逻辑 ============
+    const generator = new CharacterSpriteGenerator();
+    let generatedCharacters = [];
+
+    window.generatePresetCharacters = function() {
+      generatedCharacters = [];
+      const container = document.getElementById('character-container');
+      container.innerHTML = '';
+
+      for (const [name, appearance] of Object.entries(PRESET_CHARACTERS)) {
+        const canvas = generator.generateSpriteSheet(appearance);
+        generatedCharacters.push({ name, appearance, canvas });
+        renderCharacterCard(name, appearance, canvas);
+      }
+    };
+
+    window.generateRandomCharacters = function() {
+      generatedCharacters = [];
+      const container = document.getElementById('character-container');
+      container.innerHTML = '';
+
+      const bodyTypes = ["瘦", "标准", "壮", "胖"];
+      const heightTypes = ["矮小", "中等", "高挑"];
+      const skinTones = ["白皙", "暖色", "麦色", "深色"];
+      const hairColors = ["黑色", "深棕", "浅棕", "金色", "红色", "灰色"];
+      const hairStyles = ["短发", "中长", "长发", "束发", "光头", "卷发"];
+      const eyeTypes = ["大眼", "中等", "小眼", "圆眼", "细长", "下垂", "上挑"];
+      const faceShapes = ["圆脸", "方脸", "长脸", "瓜子脸"];
+      const expressions = ["温和微笑", "严肃认真", "开朗大笑", "忧郁沉默", "高傲冷漠", "呆萌天然"];
+      const clothingStyles = ["朴素", "普通", "讲究", "华丽", "时髦"];
+      const ageGroups = ["小孩", "青年", "中年", "老年"];
+      const genders = ["男", "女"];
+
+      const randomPick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+
+      for (let i = 0; i < 8; i++) {
+        const appearance = {
+          身高: randomPick(heightTypes),
+          体型: randomPick(bodyTypes),
+          肤色: randomPick(skinTones),
+          发色: randomPick(hairColors),
+          发型: randomPick(hairStyles),
+          眼睛: randomPick(eyeTypes),
+          脸型: randomPick(faceShapes),
+          表情: randomPick(expressions),
+          穿衣风格: randomPick(clothingStyles),
+          年龄: randomPick(ageGroups),
+          性别: randomPick(genders),
+        };
+
+        const canvas = generator.generateSpriteSheet(appearance);
+        const name = `随机角色 ${i + 1}`;
+        generatedCharacters.push({ name, appearance, canvas });
+        renderCharacterCard(name, appearance, canvas);
+      }
+    };
+
+    function renderCharacterCard(name, appearance, canvas) {
+      const container = document.getElementById('character-container');
+
+      // 创建放大的预览canvas
+      const zoomedCanvases = [];
+      const directions = ["正面", "背面", "左面", "右面"];
+      for (let i = 0; i < 4; i++) {
+        const zoomedCanvas = document.createElement("canvas");
+        zoomedCanvas.width = 64;
+        zoomedCanvas.height = 96;
+        const zoomedCtx = zoomedCanvas.getContext("2d");
+        zoomedCtx.imageSmoothingEnabled = false;
+        zoomedCtx.drawImage(canvas, i * 64, 0, 64, 96, 0, 0, 64, 96);
+        zoomedCanvases.push({ canvas: zoomedCanvas, label: directions[i] });
+      }
+
+      const card = document.createElement("div");
+      card.className = "character-card";
+      card.innerHTML = `
+        <div class="character-header">
+          <span class="character-name">${name}</span>
+          <span class="character-gender ${appearance.性别 === '男' ? 'male' : 'female'}">
+            ${appearance.性别 === '男' ? '男' : '女'} · ${appearance.年龄}
+          </span>
+        </div>
+        
+        <div class="zoomed-preview">
+          ${zoomedCanvases.map(({ canvas, label }) => `
+            <div class="zoomed-frame">
+              <canvas width="64" height="96" style="width:64px;height:96px;"></canvas>
+              <label>${label}</label>
+            </div>
+          `).join('')}
+        </div>
+
+        <div class="character-attributes">
+          <div class="attribute">
+            <span class="attribute-name">身高</span>
+            <span class="attribute-value">${appearance.身高}</span>
+          </div>
+          <div class="attribute">
+            <span class="attribute-name">体型</span>
+            <span class="attribute-value">${appearance.体型}</span>
+          </div>
+          <div class="attribute">
+            <span class="attribute-name">肤色</span>
+            <span class="attribute-value">${appearance.肤色}</span>
+          </div>
+          <div class="attribute">
+            <span class="attribute-name">发色</span>
+            <span class="attribute-value">${appearance.发色}</span>
+          </div>
+          <div class="attribute">
+            <span class="attribute-name">发型</span>
+            <span class="attribute-value">${appearance.发型}</span>
+          </div>
+          <div class="attribute">
+            <span class="attribute-name">眼睛</span>
+            <span class="attribute-value">${appearance.眼睛}</span>
+          </div>
+          <div class="attribute">
+            <span class="attribute-name">脸型</span>
+            <span class="attribute-value">${appearance.脸型}</span>
+          </div>
+          <div class="attribute">
+            <span class="attribute-name">表情</span>
+            <span class="attribute-value">${appearance.表情}</span>
+          </div>
+        </div>
+
+        <div class="action-buttons">
+          <button onclick="downloadSprite('${name}')">💾 下载精灵图</button>
+        </div>
+      `;
+
+      container.appendChild(card);
+
+      // 将放大的canvas绘制到卡片中
+      const cardCanvases = card.querySelectorAll('.zoomed-frame canvas');
+      zoomedCanvases.forEach(({ canvas: srcCanvas }, index) => {
+        const destCanvas = cardCanvases[index];
+        const destCtx = destCanvas.getContext("2d");
+        destCtx.imageSmoothingEnabled = false;
+        destCtx.drawImage(srcCanvas, 0, 0);
+      });
+    }
+
+    window.downloadSprite = function(name) {
+      const character = generatedCharacters.find(c => c.name === name);
+      if (character) {
+        const link = document.createElement("a");
+        link.download = `${name}_sprite_sheet.png`;
+        link.href = character.canvas.toDataURL("image/png");
+        link.click();
+      }
+    };
+
+    window.downloadAllSprites = function() {
+      generatedCharacters.forEach((character, index) => {
+        setTimeout(() => {
+          const link = document.createElement("a");
+          link.download = `${character.name}_sprite_sheet.png`;
+          link.href = character.canvas.toDataURL("image/png");
+          link.click();
+        }, index * 200);
+      });
+    };
+
+    // 初始生成预设角色
+    generatePresetCharacters();
+  </script>
+</body>
+</html>

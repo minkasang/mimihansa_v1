@@ -6,17 +6,17 @@
  *   const npcDefs = NPCManager.loadAllNpcs();
  */
 
-import type { NpcDefinition } from "./npcDefinition";
+import type { NpcDefinition } from "../types/npcTypes";
 
 // 直接从NPC文件夹导入JSON数据
-import yunfeiRaw from "../../../../NPC/云飞/个人信息.json";
-import qilinlinRaw from "../../../../NPC/齐琳琳/个人信息.json";
-import liukunRaw from "../../../../NPC/刘坤/个人信息.json";
-import wupingRaw from "../../../../NPC/吴平/个人信息.json";
-import yunxiangRaw from "../../../../NPC/云香/个人信息.json";
-import huqianRaw from "../../../../NPC/胡倩/个人信息.json";
-import wangwuRaw from "../../../../NPC/王五/个人信息.json";
-import zhaoliuRaw from "../../../../NPC/赵六/个人信息.json";
+import yunfeiRaw from "../../../../NPC/张文博/个人信息.json";
+import qilinlinRaw from "../../../../NPC/李秀兰/个人信息.json";
+import liukunRaw from "../../../../NPC/陈德厚/个人信息.json";
+import wupingRaw from "../../../../NPC/周明哲/个人信息.json";
+import yunxiangRaw from "../../../../NPC/陈晓燕/个人信息.json";
+import huqianRaw from "../../../../NPC/林玉芳/个人信息.json";
+import wangwuRaw from "../../../../NPC/黄志远/个人信息.json";
+import zhaoliuRaw from "../../../../NPC/郑广福/个人信息.json";
 
 // JSON导入的类型
 interface RawNpcData {
@@ -141,7 +141,7 @@ function normalizeState(raw: RawNpcData): Record<string, number> {
  */
 function normalizeNpc(raw: RawNpcData): NpcDefinition {
   const roleType = deriveRoleType(raw.职业);
-  const isPlayer = raw.角色id === "云飞";
+  const isPlayer = raw.角色id === "张文博";
   const shopId = deriveShopId(raw.角色id);
   const personality = normalizePersonality(raw);
   const state = normalizeState(raw);
@@ -174,7 +174,7 @@ function normalizeNpc(raw: RawNpcData): NpcDefinition {
     speedMultiplier: deriveSpeed(raw.角色id, roleType),
     rawData: {
       家坐标: raw.家坐标 ? [raw.家坐标[0], raw.家坐标[1]] : raw.当前坐标 ? [raw.当前坐标[0], raw.当前坐标[1]] : undefined,
-      物品栏: raw.物品栏?.map(item => ({ 物品id: item.物品id || "", 名称: item.名称, 数量: item.数量, 类型: item.类型 })),
+      物品栏: raw.物品栏?.map(item => ({ 物品id: item.物品id || "", 名称: item.名称, 数量: item.数量, 类型: item.类型, 标签: item.标签 || [] })),
       金钱: raw.金钱 ?? 50,
       记忆标签: raw.记忆标签 ?? [],
       知识库: raw.知识库 ? { 已知地点: raw.知识库.已知地点, 已知人物: raw.知识库.已知人物 } : undefined,

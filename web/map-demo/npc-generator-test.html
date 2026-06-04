@@ -1,0 +1,765 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NPC外观属性生成器 - 测试</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Microsoft YaHei', sans-serif;
+      background: #1a1a2e;
+      color: #fff;
+      padding: 20px;
+      min-height: 100vh;
+    }
+
+    h1 {
+      text-align: center;
+      color: #4fc3f7;
+      margin-bottom: 10px;
+      font-size: 24px;
+    }
+
+    .subtitle {
+      text-align: center;
+      color: #888;
+      margin-bottom: 30px;
+      font-size: 14px;
+    }
+
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+
+    .controls {
+      background: #16213e;
+      padding: 20px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      display: flex;
+      gap: 20px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .control-group {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    label {
+      color: #aaa;
+      font-size: 14px;
+    }
+
+    input[type="number"] {
+      width: 80px;
+      padding: 8px;
+      background: #0d1b2a;
+      border: 1px solid #0f3460;
+      color: #fff;
+      border-radius: 4px;
+    }
+
+    button {
+      padding: 10px 20px;
+      background: #1565c0;
+      border: none;
+      color: #fff;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+      transition: background 0.2s;
+    }
+
+    button:hover {
+      background: #1976d2;
+    }
+
+    button.secondary {
+      background: #5d4037;
+    }
+
+    button.secondary:hover {
+      background: #6d4c41;
+    }
+
+    .npc-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 20px;
+    }
+
+    .npc-card {
+      background: #16213e;
+      border-radius: 8px;
+      padding: 15px;
+      border: 1px solid #0f3460;
+    }
+
+    .npc-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 15px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid #0f3460;
+    }
+
+    .npc-id {
+      color: #4fc3f7;
+      font-weight: bold;
+    }
+
+    .npc-gender {
+      padding: 4px 12px;
+      border-radius: 12px;
+      font-size: 12px;
+    }
+
+    .npc-gender.male {
+      background: #1565c0;
+    }
+
+    .npc-gender.female {
+      background: #c2185b;
+    }
+
+    .npc-visual {
+      display: flex;
+      gap: 15px;
+      margin-bottom: 15px;
+    }
+
+    .npc-avatar {
+      width: 64px;
+      height: 96px;
+      background: #0d1b2a;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 32px;
+      border: 2px solid #0f3460;
+    }
+
+    .npc-colors {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .color-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .color-label {
+      font-size: 12px;
+      color: #888;
+      width: 50px;
+    }
+
+    .color-box {
+      width: 30px;
+      height: 20px;
+      border-radius: 4px;
+      border: 1px solid #444;
+    }
+
+    .npc-attributes {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+      margin-bottom: 15px;
+    }
+
+    .attribute {
+      display: flex;
+      justify-content: space-between;
+      font-size: 13px;
+    }
+
+    .attribute-name {
+      color: #888;
+    }
+
+    .attribute-value {
+      color: #4fc3f7;
+    }
+
+    .npc-description {
+      background: #0d1b2a;
+      padding: 10px;
+      border-radius: 4px;
+      font-size: 13px;
+      color: #ccc;
+      line-height: 1.5;
+      margin-bottom: 10px;
+    }
+
+    .npc-prompt {
+      background: #0d1b2a;
+      padding: 10px;
+      border-radius: 4px;
+      font-size: 11px;
+      color: #888;
+      line-height: 1.4;
+      max-height: 100px;
+      overflow-y: auto;
+      font-family: monospace;
+    }
+
+    .stats {
+      background: #16213e;
+      padding: 20px;
+      border-radius: 8px;
+      margin-top: 20px;
+    }
+
+    .stats h3 {
+      color: #4fc3f7;
+      margin-bottom: 15px;
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 15px;
+    }
+
+    .stat-item {
+      display: flex;
+      justify-content: space-between;
+      padding: 8px;
+      background: #0d1b2a;
+      border-radius: 4px;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 60px;
+      color: #666;
+    }
+
+    .copy-btn {
+      font-size: 11px;
+      padding: 4px 8px;
+      margin-top: 5px;
+    }
+  </style>
+</head>
+<body>
+  <h1>🎭 NPC外观属性生成器</h1>
+  <p class="subtitle">基于遗传规则生成角色外观，不是预设职业，而是属性组合涌现角色印象</p>
+
+  <div class="container">
+    <div class="controls">
+      <div class="control-group">
+        <label>生成数量:</label>
+        <input type="number" id="count" value="8" min="1" max="50">
+      </div>
+      <button onclick="generateNPCs()">🎲 生成NPC</button>
+      <button class="secondary" onclick="generateFamily()">👨‍👩‍👧 生成家庭（遗传演示）</button>
+      <button class="secondary" onclick="exportPrompts()">📋 导出AI提示词</button>
+    </div>
+
+    <div id="npc-container" class="npc-grid">
+      <div class="empty-state">
+        点击"生成NPC"按钮开始生成角色
+      </div>
+    </div>
+
+    <div id="stats-container" class="stats" style="display: none;">
+      <h3>📊 统计信息</h3>
+      <div id="stats-content" class="stats-grid"></div>
+    </div>
+  </div>
+
+  <script type="module">
+    // 外观属性类型定义
+    const BodyTypeWeights = [
+      { value: "瘦", weight: 15 },
+      { value: "标准", weight: 50 },
+      { value: "壮", weight: 25 },
+      { value: "胖", weight: 10 },
+    ];
+
+    const SkinToneWeights = [
+      { value: "白皙", weight: 25 },
+      { value: "暖色", weight: 35 },
+      { value: "麦色", weight: 25 },
+      { value: "深色", weight: 15 },
+    ];
+
+    const HairColorWeights = [
+      { value: "黑色", weight: 40 },
+      { value: "深棕", weight: 25 },
+      { value: "浅棕", weight: 15 },
+      { value: "金色", weight: 10 },
+      { value: "红色", weight: 8 },
+      { value: "灰色", weight: 2 },
+    ];
+
+    const FaceStyleWeights = [
+      { value: "柔和", weight: 30 },
+      { value: "锐利", weight: 25 },
+      { value: "方正", weight: 25 },
+      { value: "圆润", weight: 20 },
+    ];
+
+    const ExpressionWeights = [
+      { value: "严肃", weight: 25 },
+      { value: "温和", weight: 35 },
+      { value: "活泼", weight: 25 },
+      { value: "忧郁", weight: 15 },
+    ];
+
+    // 工具函数
+    function randomRange(min, max) {
+      return Math.floor(Math.random() * (max - min + 1)) + min;
+    }
+
+    function clamp(value, min, max) {
+      return Math.max(min, Math.min(max, value));
+    }
+
+    function weightedRandom(options) {
+      const totalWeight = options.reduce((sum, opt) => sum + opt.weight, 0);
+      let random = Math.random() * totalWeight;
+      
+      for (const option of options) {
+        random -= option.weight;
+        if (random <= 0) {
+          return option.value;
+        }
+      }
+      return options[options.length - 1].value;
+    }
+
+    // 肤色色值
+    const SkinColors = {
+      白皙: "#FFEFE0",
+      暖色: "#F5D0B0",
+      麦色: "#E8C4A0",
+      深色: "#C49464",
+    };
+
+    // 发色色值
+    const HairColors = {
+      黑色: "#1A1A1A",
+      深棕: "#4A2408",
+      浅棕: "#8B4513",
+      金色: "#D4A574",
+      红色: "#A0522D",
+      灰色: "#808080",
+      蓝色: "#4A90E2",
+    };
+
+    // 生成外观属性
+    function generateAppearance(father, mother, gender) {
+      const hasParents = father && mother;
+
+      return {
+        身高: generateHeight(father, mother),
+        体型: generateBodyType(father, mother),
+        肤色基调: generateSkinTone(father, mother),
+        肤色深浅: hasParents ? 
+          clamp(Math.round((father.肤色深浅 + mother.肤色深浅) / 2 * 0.7 + randomRange(1, 5) * 0.3), 1, 5) :
+          randomRange(2, 4),
+        发色: generateHairColor(father, mother),
+        发型: generateHairStyle(gender),
+        五官风格: weightedRandom(FaceStyleWeights),
+        表情基调: weightedRandom(ExpressionWeights),
+        书生气: 0,
+        时髦度: randomRange(1, 5),
+      };
+    }
+
+    function generateHeight(father, mother) {
+      if (!father || !mother) {
+        return clamp(randomRange(3, 8) + (Math.random() > 0.5 ? 1 : 0), 1, 10);
+      }
+      const parentMean = (father.身高 + mother.身高) / 2;
+      return clamp(Math.round(parentMean * 0.7 + randomRange(1, 10) * 0.3), 1, 10);
+    }
+
+    function generateBodyType(father, mother) {
+      let options = [...BodyTypeWeights];
+      if (father && mother && father.体型 === mother.体型) {
+        options = options.map(opt => ({
+          ...opt,
+          weight: opt.value === father.体型 ? opt.weight * 2 : opt.weight
+        }));
+      }
+      return weightedRandom(options);
+    }
+
+    function generateSkinTone(father, mother) {
+      if (father && mother) {
+        if (father.肤色基调 === mother.肤色基调) return father.肤色基调;
+        return Math.random() > 0.5 ? father.肤色基调 : mother.肤色基调;
+      }
+      return weightedRandom(SkinToneWeights);
+    }
+
+    function generateHairColor(father, mother) {
+      if (Math.random() < 0.001) return "蓝色";
+      if (father && mother) {
+        if (father.发色 === mother.发色) {
+          return Math.random() < 0.85 ? father.发色 : weightedRandom(HairColorWeights);
+        }
+        return Math.random() > 0.5 ? father.发色 : mother.发色;
+      }
+      return weightedRandom(HairColorWeights);
+    }
+
+    function generateHairStyle(gender) {
+      const maleOptions = [
+        { value: "短发", weight: 60 },
+        { value: "中长", weight: 30 },
+        { value: "长发", weight: 5 },
+        { value: "束发", weight: 5 },
+      ];
+      const femaleOptions = [
+        { value: "短发", weight: 20 },
+        { value: "中长", weight: 35 },
+        { value: "长发", weight: 35 },
+        { value: "束发", weight: 10 },
+      ];
+      return weightedRandom(gender === "男" ? maleOptions : femaleOptions);
+    }
+
+    // 生成描述
+    function generateDescription(appearance, gender) {
+      const parts = [];
+      
+      if (appearance.身高 <= 2) parts.push("身材矮小");
+      else if (appearance.身高 <= 4) parts.push("个子偏矮");
+      else if (appearance.身高 >= 8) parts.push(appearance.身高 >= 9 ? "个子很高" : "身材高挑");
+
+      if (appearance.体型 === "瘦") parts.push("身形单薄");
+      else if (appearance.体型 === "壮") parts.push("体格健壮");
+      else if (appearance.体型 === "胖") parts.push("体态丰满");
+
+      parts.push(`${appearance.肤色基调}肤色`);
+      parts.push(`${appearance.发色}${appearance.发型}`);
+      parts.push(`${appearance.五官风格}的五官，表情${appearance.表情基调}`);
+
+      return parts.join("，");
+    }
+
+    // 生成AI提示词
+    function generateAIPrompt(appearance, gender) {
+      const descriptions = [];
+
+      if (appearance.体型 === "壮") descriptions.push(gender === "男" ? "muscular build" : "strong build");
+      else if (appearance.体型 === "瘦") descriptions.push("slender build");
+
+      const skinDesc = {
+        白皙: "pale",
+        暖色: "warm beige",
+        麦色: "wheat-toned",
+        深色: "deep",
+      }[appearance.肤色基调];
+      descriptions.push(`${skinDesc} skin`);
+
+      const hairColorMap = {
+        黑色: "black",
+        深棕: "dark brown",
+        浅棕: "light brown",
+        金色: "blonde",
+        红色: "red",
+        灰色: "gray",
+        蓝色: "blue",
+      };
+      const hairStyleMap = {
+        短发: "short hair",
+        中长: "medium length hair",
+        长发: "long hair",
+        束发: "hair in a bun",
+      };
+      descriptions.push(`${hairColorMap[appearance.发色]} ${hairStyleMap[appearance.发型]}`);
+
+      const faceStyleMap = {
+        柔和: "soft",
+        锐利: "sharp",
+        方正: "square",
+        圆润: "round",
+      };
+      const expressionMap = {
+        严肃: "serious",
+        温和: "gentle",
+        活泼: "lively",
+        忧郁: "melancholy",
+      };
+      descriptions.push(`${faceStyleMap[appearance.五官风格]} facial features`);
+      descriptions.push(`${expressionMap[appearance.表情基调]} expression`);
+
+      return `Professional pixel art character sprite sheet, 12-frame animation, 32x64px per frame,
+top-down RPG, 4-directional walk cycle, Q-chibi big head style,
+
+Character: ${gender === "男" ? "Male" : "Female"} villager, ${descriptions.join(", ")},
+16-bit palette, flat shading, Stardew Valley style,
+transparent background, game asset, high quality`;
+    }
+
+    // 生成精灵图路径
+    function generateSpritePath(appearance, gender) {
+      const bodyCode = { 瘦: "thin", 标准: "std", 壮: "strong", 胖: "heavy" }[appearance.体型];
+      const skinCode = { 白皙: "pale", 暖色: "warm", 麦色: "wheat", 深色: "dark" }[appearance.肤色基调];
+      const hairCode = { 黑色: "black", 深棕: "brn", 浅棕: "lbrn", 金色: "blond", 红色: "red", 灰色: "gray", 蓝色: "blue" }[appearance.发色];
+      const genderCode = gender === "男" ? "m" : "f";
+      const faceCode = { 柔和: "soft", 锐利: "sharp", 方正: "square", 圆润: "round" }[appearance.五官风格];
+      return `sprites/${bodyCode}_${skinCode}_${hairCode}_${genderCode}_${faceCode}.png`;
+    }
+
+    // 获取头像emoji
+    function getAvatarEmoji(gender, appearance) {
+      if (gender === "男") {
+        if (appearance.体型 === "壮") return "👨‍🌾";
+        if (appearance.体型 === "胖") return "🧔";
+        return "👨";
+      } else {
+        if (appearance.发型 === "长发") return "👩";
+        if (appearance.发型 === "短发") return "👩‍🦱";
+        return "👧";
+      }
+    }
+
+    // 生成NPC
+    let generatedNPCs = [];
+
+    window.generateNPCs = function() {
+      const count = parseInt(document.getElementById('count').value) || 8;
+      generatedNPCs = [];
+
+      for (let i = 0; i < count; i++) {
+        const gender = Math.random() > 0.5 ? "男" : "女";
+        const appearance = generateAppearance(null, null, gender);
+        generatedNPCs.push({
+          id: i + 1,
+          gender,
+          appearance,
+          description: generateDescription(appearance, gender),
+          aiPrompt: generateAIPrompt(appearance, gender),
+          spritePath: generateSpritePath(appearance, gender),
+        });
+      }
+
+      renderNPCs();
+      updateStats();
+    };
+
+    // 生成家庭（遗传演示）
+    window.generateFamily = function() {
+      generatedNPCs = [];
+
+      // 生成父亲
+      const fatherGender = "男";
+      const father = generateAppearance(null, null, fatherGender);
+      generatedNPCs.push({
+        id: 1,
+        gender: fatherGender,
+        appearance: father,
+        description: generateDescription(father, fatherGender),
+        aiPrompt: generateAIPrompt(father, fatherGender),
+        spritePath: generateSpritePath(father, fatherGender),
+        role: "父亲",
+      });
+
+      // 生成母亲
+      const motherGender = "女";
+      const mother = generateAppearance(null, null, motherGender);
+      generatedNPCs.push({
+        id: 2,
+        gender: motherGender,
+        appearance: mother,
+        description: generateDescription(mother, motherGender),
+        aiPrompt: generateAIPrompt(mother, motherGender),
+        spritePath: generateSpritePath(mother, motherGender),
+        role: "母亲",
+      });
+
+      // 生成两个孩子
+      for (let i = 0; i < 2; i++) {
+        const childGender = Math.random() > 0.5 ? "男" : "女";
+        const child = generateAppearance(father, mother, childGender);
+        generatedNPCs.push({
+          id: 3 + i,
+          gender: childGender,
+          appearance: child,
+          description: generateDescription(child, childGender),
+          aiPrompt: generateAIPrompt(child, childGender),
+          spritePath: generateSpritePath(child, childGender),
+          role: `孩子${i + 1}`,
+        });
+      }
+
+      renderNPCs(true);
+      updateStats();
+    };
+
+    // 渲染NPC卡片
+    function renderNPCs(isFamily = false) {
+      const container = document.getElementById('npc-container');
+      container.innerHTML = generatedNPCs.map(npc => `
+        <div class="npc-card">
+          <div class="npc-header">
+            <span class="npc-id">${isFamily ? npc.role : `#${npc.id}`}</span>
+            <span class="npc-gender ${npc.gender === '男' ? 'male' : 'female'}">
+              ${npc.gender === '男' ? '男' : '女'}
+            </span>
+          </div>
+          
+          <div class="npc-visual">
+            <div class="npc-avatar" style="background: ${SkinColors[npc.appearance.肤色基调]};">
+              ${getAvatarEmoji(npc.gender, npc.appearance)}
+            </div>
+            <div class="npc-colors">
+              <div class="color-row">
+                <span class="color-label">肤色</span>
+                <div class="color-box" style="background: ${SkinColors[npc.appearance.肤色基调]};"></div>
+              </div>
+              <div class="color-row">
+                <span class="color-label">发色</span>
+                <div class="color-box" style="background: ${HairColors[npc.appearance.发色]};"></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="npc-attributes">
+            <div class="attribute">
+              <span class="attribute-name">身高</span>
+              <span class="attribute-value">${npc.appearance.身高}/10</span>
+            </div>
+            <div class="attribute">
+              <span class="attribute-name">体型</span>
+              <span class="attribute-value">${npc.appearance.体型}</span>
+            </div>
+            <div class="attribute">
+              <span class="attribute-name">发型</span>
+              <span class="attribute-value">${npc.appearance.发型}</span>
+            </div>
+            <div class="attribute">
+              <span class="attribute-name">五官</span>
+              <span class="attribute-value">${npc.appearance.五官风格}</span>
+            </div>
+            <div class="attribute">
+              <span class="attribute-name">表情</span>
+              <span class="attribute-value">${npc.appearance.表情基调}</span>
+            </div>
+            <div class="attribute">
+              <span class="attribute-name">时髦度</span>
+              <span class="attribute-value">${npc.appearance.时髦度}/10</span>
+            </div>
+          </div>
+
+          <div class="npc-description">
+            ${npc.description}
+          </div>
+
+          <div class="npc-prompt">
+            ${npc.aiPrompt}
+          </div>
+          <button class="copy-btn" onclick="copyPrompt(${npc.id})">复制提示词</button>
+        </div>
+      `).join('');
+    }
+
+    // 更新统计
+    function updateStats() {
+      const statsContainer = document.getElementById('stats-container');
+      const statsContent = document.getElementById('stats-content');
+      
+      const stats = {
+        男性: generatedNPCs.filter(n => n.gender === "男").length,
+        女性: generatedNPCs.filter(n => n.gender === "女").length,
+        平均身高: (generatedNPCs.reduce((sum, n) => sum + n.appearance.身高, 0) / generatedNPCs.length).toFixed(1),
+        体型分布: generatedNPCs.reduce((acc, n) => {
+          acc[n.appearance.体型] = (acc[n.appearance.体型] || 0) + 1;
+          return acc;
+        }, {}),
+        肤色分布: generatedNPCs.reduce((acc, n) => {
+          acc[n.appearance.肤色基调] = (acc[n.appearance.肤色基调] || 0) + 1;
+          return acc;
+        }, {}),
+        发色分布: generatedNPCs.reduce((acc, n) => {
+          acc[n.appearance.发色] = (acc[n.appearance.发色] || 0) + 1;
+          return acc;
+        }, {}),
+      };
+
+      statsContent.innerHTML = `
+        <div class="stat-item">
+          <span>男性</span>
+          <span>${stats.男性}</span>
+        </div>
+        <div class="stat-item">
+          <span>女性</span>
+          <span>${stats.女性}</span>
+        </div>
+        <div class="stat-item">
+          <span>平均身高</span>
+          <span>${stats.平均身高}/10</span>
+        </div>
+        ${Object.entries(stats.体型分布).map(([k, v]) => `
+          <div class="stat-item">
+            <span>体型:${k}</span>
+            <span>${v}</span>
+          </div>
+        `).join('')}
+        ${Object.entries(stats.肤色分布).map(([k, v]) => `
+          <div class="stat-item">
+            <span>肤色:${k}</span>
+            <span>${v}</span>
+          </div>
+        `).join('')}
+      `;
+
+      statsContainer.style.display = 'block';
+    }
+
+    // 复制提示词
+    window.copyPrompt = function(id) {
+      const npc = generatedNPCs.find(n => n.id === id);
+      if (npc) {
+        navigator.clipboard.writeText(npc.aiPrompt).then(() => {
+          alert('提示词已复制到剪贴板！');
+        });
+      }
+    };
+
+    // 导出所有提示词
+    window.exportPrompts = function() {
+      if (generatedNPCs.length === 0) {
+        alert('请先生成NPC！');
+        return;
+      }
+      const text = generatedNPCs.map((npc, i) => 
+        `=== NPC ${i + 1} (${npc.gender}) ===\n${npc.aiPrompt}\n`
+      ).join('\n');
+      
+      const blob = new Blob([text], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'npc-ai-prompts.txt';
+      a.click();
+    };
+
+    // 初始生成
+    generateNPCs();
+  </script>
+</body>
+</html>

@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>等距 2.5D 幸福镇地图</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #0d1b2a; display: flex; flex-direction: column; align-items: center; padding: 10px; color: #fff; font-family: 'Microsoft YaHei',sans-serif; overflow: hidden; }
+  h1 { font-size: 16px; color: #e94560; margin-bottom: 2px; }
+  .sub { font-size: 10px; color: #666; margin-bottom: 8px; }
+  #mc { cursor: grab; border: 2px solid #0f3460; display: block; }
+  #map-container { position: relative; }
+</style>
+</head>
+<body>
+<h1>🏔️ 幸福镇 · 等距 2.5D 视图</h1>
+<p class="sub">拖动平移 | 滚轮缩放 | 100×100 地图</p>
+<div id="map-container">
+  <canvas id="mc"></canvas>
+</div>
+
+<script type="module">
+import { MapManager, 幸福镇地图 } from './src/world/mapData.ts';
+import { renderIsoMap } from './src/render/IsometricMap.ts';
+
+const canvas = document.getElementById('mc');
+canvas.width = window.innerWidth - 20;
+canvas.height = window.innerHeight - 70;
+const ctx = canvas.getContext('2d');
+
+const map = new MapManager(幸福镇地图);
+const mapW = 幸福镇地图.width;
+const mapH = 幸福镇地图.height;
+
+// 相机(camPX/PY = 烘焙画布上的像素坐标, 地图中心~9568,4820)
+let zoom = 0.65;
+let camPX = 9600, camPY = 4850;
+let dragging = false, dragSX = 0, dragSY = 0, dragCX = 0, dragCY = 0;
+
+function draw() {
+  const vw = canvas.width / zoom;
+  const vh = canvas.height / zoom;
+  ctx.fillStyle = '#0d1b2a';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  renderIsoMap(ctx, map.tileGrid, mapW, mapH, 幸福镇地图.buildings, zoom, camPX, camPY, vw, vh);
+}
+
+// 拖动
+canvas.addEventListener('pointerdown', e => {
+  dragging = true;
+  dragSX = e.clientX; dragSY = e.clientY;
+  dragCX = camPX; dragCY = camPY;
+});
+window.addEventListener('pointermove', e => {
+  if (!dragging) return;
+  camPX = dragCX - (e.clientX - dragSX);
+  camPY = dragCY - (e.clientY - dragSY);
+  draw();
+});
+window.addEventListener('pointerup', () => { dragging = false; });
+
+// 缩放
+canvas.addEventListener('wheel', e => {
+  e.preventDefault();
+  const d = e.deltaY > 0 ? -0.06 : 0.06;
+  zoom = Math.max(0.2, Math.min(3, zoom + d));
+  draw();
+});
+
+// 响应窗口大小变化
+window.addEventListener('resize', () => {
+  canvas.width = window.innerWidth - 20;
+  canvas.height = window.innerHeight - 70;
+  draw();
+});
+
+draw();
+console.log('✅ 幸福镇等距2.5D地图已启动');
+</script>
+</body>
+</html>

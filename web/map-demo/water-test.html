@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>水流模拟测试 - 挖土/填土/水流</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #1a1a2e; font-family: 'Microsoft YaHei', sans-serif; display: flex; flex-direction: column; align-items: center; padding: 20px; color: #fff; }
+    h1 { font-size: 18px; color: #e94560; margin-bottom: 4px; }
+    .subtitle { font-size: 12px; color: #888; margin-bottom: 14px; }
+    #main-canvas { image-rendering: pixelated; border: 2px solid #0f3460; margin-bottom: 10px; cursor: crosshair; }
+    .tools { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; align-items: center; margin-bottom: 8px; }
+    .tools button { padding: 7px 14px; border: 1px solid #0f3460; background: #16213e; color: #fff; border-radius: 4px; cursor: pointer; font-size: 13px; }
+    .tools button:hover { background: #e94560; }
+    .tools button.active { background: #e94560; color: #fff; }
+    .tools select { padding: 6px 10px; background: #16213e; color: #fff; border: 1px solid #0f3460; border-radius: 4px; font-size: 13px; }
+    .info { font-size: 11px; color: #888; text-align: center; margin-bottom: 6px; }
+    .status { font-size: 12px; color: #aaa; text-align: center; display: flex; gap: 24px; justify-content: center; }
+    .status strong { color: #e94560; }
+    .legend { display: flex; gap: 16px; font-size: 10px; color: #aaa; margin-top: 4px; }
+    .legend span::before { content: '■ '; font-size: 14px; }
+  </style>
+</head>
+<body>
+  <h1>💧 水流模拟 — 水往低处流</h1>
+  <p class="subtitle">等水平面原理：连通水体表面等高 | 挖土→地势↓→水流入 | 填土→地势↑→水挤出 | 每250ms迭代8轮</p>
+  
+  <canvas id="main-canvas" style="pointer-events: auto;"></canvas>
+  
+  <div class="tools">
+    <button id="btn-dig" class="active">🪨 挖土 (Q)</button>
+    <button id="btn-fill">⬆ 填土 (W)</button>
+    <button id="btn-water">💧 加水 (E)</button>
+    <button id="btn-drain">🪣 抽水 (R)</button>
+    <select id="brush-size">
+      <option value="1">1×1格</option>
+      <option value="2">2×2格</option>
+      <option value="3" selected>3×3格</option>
+    </select>
+    <button id="btn-reset">🔄 重置</button>
+  </div>
+  
+  <div class="info">
+    当前工具: <strong id="current-tool">挖土</strong> | 
+    地图: 20×15 格 | 
+    水流自动进行中
+  </div>
+  
+  <div class="status">
+    <span>总水量: <strong id="stat-water">0</strong></span>
+    <span>连通水位: <strong id="stat-level">-</strong></span>
+    <span>水流转移: <strong id="stat-flow">0</strong>次/秒</span>
+    <span>Tick: <strong id="stat-tick">0</strong></span>
+  </div>
+  
+  <div class="legend">
+    <span style="color:#a0c040;">■ 高地(8+)</span>
+    <span style="color:#6baa3d;">■ 草地(5)</span>
+    <span style="color:#8d6e63;">■ 泥土(3-4)</span>
+    <span style="color:#5d4037;">■ 深坑(0-2)</span>
+    <span style="color:#42a5f5;">■ 水域</span>
+  </div>
+
+  <script type="module">
+    import {
+      createGrassCell, createWaterCell, createStoneCell,
+      getSubTileTerrain, setSubTile, getElevation, setElevation,
+      getWater, setWater,
+      SUB_TILE_COUNT, SUB_TILE_SIZE, LOGIC_TILE_SIZE
+    } from './src/world/gridCell.ts';
+    import { tickWaterFlow, digTile, fillTile, addWaterToSubTile, removeWaterFromSubTile } from './src/systems/waterFlow.ts';
+
+    const W = 20, H = 15;
+    const canvas = document.getElementById('main-canvas');
+    canvas.width = W * LOGIC_TILE_SIZE;
+    canvas.height = H * LOGIC_TILE_SIZE;
+    console.log('Canvas尺寸:', canvas.width, '×', canvas.height,
+                ' BoundingRect:', canvas.getBoundingClientRect().width, '×', canvas.getBoundingClientRect().height);
+    const ctx = canvas.getContext('2d');
+
+    // ==================== 地图初始化 ====================
+    let grid = [];
+    function initGrid() {
+      grid = [];
+      for (let y = 0; y < H; y++) {
+        grid[y] = [];
+        for (let x = 0; x < W; x++) {
+          if (y >= 5 && y <= 7 && x >= 4 && x <= 15) {
+            grid[y][x] = createWaterCell(x, y);
+          } else if (y >= 9 && y <= 10 && x >= 7 && x <= 8) {
+            grid[y][x] = createStoneCell(x, y);
+          } else {
+            grid[y][x] = createGrassCell(x, y);
+          }
+        }
+      }
+    }
+    initGrid();
+
+    // ==================== 工具状态 ====================
+    let tool = 'dig';
+    let brushSize = 3;
+    let tickCount = 0;
+    let flowTransfers = 0;
+
+    document.getElementById('btn-dig').addEventListener('click', () => { tool = 'dig'; updateUI(); });
+    document.getElementById('btn-fill').addEventListener('click', () => { tool = 'fill'; updateUI(); });
+    document.getElementById('btn-water').addEventListener('click', () => { tool = 'water'; updateUI(); });
+    document.getElementById('btn-drain').addEventListener('click', () => { tool = 'drain'; updateUI(); });
+    document.getElementById('brush-size').addEventListener('change', e => { brushSize = +e.target.value; });
+    document.getElementById('btn-reset').addEventListener('click', () => { initGrid(); redraw(); });
+    
+    document.addEventListener('keydown', e => {
+      if (e.key === 'q') { tool = 'dig'; updateUI(); }
+      if (e.key === 'w') { tool = 'fill'; updateUI(); }
+      if (e.key === 'e') { tool = 'water'; updateUI(); }
+      if (e.key === 'r') { tool = 'drain'; updateUI(); }
+    });
+
+    function updateUI() {
+      ['dig','fill','water','drain'].forEach(t => 
+        document.getElementById(`btn-${t}`).classList.toggle('active', tool === t));
+      const names = { dig: '🪨 挖土', fill: '⬆ 填土', water: '💧 加水', drain: '🪣 抽水' };
+      document.getElementById('current-tool').textContent = names[tool];
+    }
+
+    // ==================== 点击处理 ====================
+    function doClick(e) {
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = canvas.width / rect.width;
+      const scaleY = canvas.height / rect.height;
+      const mx = Math.floor((e.clientX - rect.left) * scaleX);
+      const my = Math.floor((e.clientY - rect.top) * scaleY);
+      const cellX = Math.floor(mx / LOGIC_TILE_SIZE);
+      const cellY = Math.floor(my / LOGIC_TILE_SIZE);
+      console.log('点击:', mx, my, '→ 格:', cellX, cellY, '工具:', tool);
+      if (cellX < 0 || cellX >= W || cellY < 0 || cellY >= H) {
+        console.log('出界');
+        return;
+      }
+
+      // 计算点击在格内的子瓦片坐标
+      const subX = Math.floor((mx % LOGIC_TILE_SIZE) / SUB_TILE_SIZE);
+      const subY = Math.floor((my % LOGIC_TILE_SIZE) / SUB_TILE_SIZE);
+
+      const bs = brushSize;
+      for (let dy = 0; dy < bs; dy++) {
+        for (let dx = 0; dx < bs; dx++) {
+          const cx = cellX + dx - Math.floor(bs / 2);
+          const cy = cellY + dy - Math.floor(bs / 2);
+          if (cx < 0 || cx >= W || cy < 0 || cy >= H) continue;
+
+          const cell = grid[cy][cx];
+          if (!cell) continue;
+
+          if (tool === 'dig') {
+            // 挖土：降低地势（整格子瓦片一起降）
+            for (let sy = 0; sy < SUB_TILE_COUNT; sy++) {
+              for (let sx = 0; sx < SUB_TILE_COUNT; sx++) {
+                digTile(grid, cx, cy, sx, sy, 1);
+              }
+            }
+          } else if (tool === 'fill') {
+            // 填土：升高地势
+            for (let sy = 0; sy < SUB_TILE_COUNT; sy++) {
+              for (let sx = 0; sx < SUB_TILE_COUNT; sx++) {
+                fillTile(grid, cx, cy, sx, sy, 1);
+              }
+            }
+          } else if (tool === 'water') {
+            // 加水
+            for (let sy = 0; sy < SUB_TILE_COUNT; sy++) {
+              for (let sx = 0; sx < SUB_TILE_COUNT; sx++) {
+                addWaterToSubTile(grid, cx, cy, sx, sy, 20);
+              }
+            }
+          } else if (tool === 'drain') {
+            // 抽水
+            for (let sy = 0; sy < SUB_TILE_COUNT; sy++) {
+              for (let sx = 0; sx < SUB_TILE_COUNT; sx++) {
+                removeWaterFromSubTile(grid, cx, cy, sx, sy, 30);
+              }
+            }
+          }
+        }
+      }
+      redraw();
+    }
+    canvas.addEventListener('click', doClick);
+    canvas.addEventListener('mousedown', doClick);
+
+    // ==================== 渲染（等水平面可视化） ====================
+    const WK = 20; // 水表面换算系数
+
+    function redraw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // 先统计水面高度范围（用于统一着色参考）
+      let allSurfaces: { x:number, y:number, s:number }[] = [];
+      let totalWater = 0, cellCount = 0, wCount = 0;
+      let maxSurf = -Infinity, minSurf = Infinity;
+
+      for (let cy = 0; cy < H; cy++) {
+        for (let cx = 0; cx < W; cx++) {
+          const cell = grid[cy]?.[cx];
+          if (!cell) continue;
+          for (let sy = 0; sy < SUB_TILE_COUNT; sy++) {
+            for (let sx = 0; sx < SUB_TILE_COUNT; sx++) {
+              const w = getWater(cell, sx, sy);
+              const e = getElevation(cell, sx, sy);
+              const s = e + w / WK;
+              totalWater += w; cellCount++;
+              if (w > 0) { wCount++; allSurfaces.push({x: cx*16+sx*4, y: cy*16+sy*4, s}); }
+              if (w > 0 && s > maxSurf) maxSurf = s;
+              if (w > 0 && s < minSurf) minSurf = s;
+            }
+          }
+        }
+      }
+
+      // 水面范围（如果没有水，用默认值）
+      if (wCount === 0) { maxSurf = 5; minSurf = 5; }
+      const surfRange = Math.max(0.5, maxSurf - minSurf);
+      const commonSurf = minSurf + surfRange * 0.5; // 中间水位
+
+      // 渲染每个子瓦片
+      for (let cy = 0; cy < H; cy++) {
+        for (let cx = 0; cx < W; cx++) {
+          const cell = grid[cy]?.[cx];
+          if (!cell) continue;
+
+          for (let sy = 0; sy < SUB_TILE_COUNT; sy++) {
+            for (let sx = 0; sx < SUB_TILE_COUNT; sx++) {
+              const px = cx * LOGIC_TILE_SIZE + sx * SUB_TILE_SIZE;
+              const py = cy * LOGIC_TILE_SIZE + sy * SUB_TILE_SIZE;
+              const elev = getElevation(cell, sx, sy);
+              const water = getWater(cell, sx, sy);
+              const terrain = getSubTileTerrain(cell, sx, sy);
+              const surf = elev + water / WK;
+
+              // --- 地势底色 ---
+              ctx.fillStyle = elevColor(elev, terrain, water > 0);
+              ctx.fillRect(px, py, SUB_TILE_SIZE, SUB_TILE_SIZE);
+
+              // --- 水层：按表面高度统一着色 ---
+              if (water > 0) {
+                // 水的深度 = 表面 - 地势（水有多深）
+                const waterDepth = Math.max(0, surf - elev);
+
+                // 统一着色：水面越接近最高连通水位=浅色，越深=深色
+                const normalizedDepth = Math.min(1, waterDepth / 5); // 5格深=最深
+
+                // 水的 alpha
+                const alpha = 0.4 + normalizedDepth * 0.45;
+                // 水的颜色：浅处偏青，深处偏深蓝
+                const r = Math.round(30 - normalizedDepth * 20);
+                const g = Math.round(144 - normalizedDepth * 40);
+                const b = Math.round(200 + normalizedDepth * 40);
+
+                ctx.fillStyle = `rgba(${r},${g},${Math.min(255,b)},${alpha})`;
+                ctx.fillRect(px, py, SUB_TILE_SIZE, SUB_TILE_SIZE);
+
+                // 水面高光线（接近表面处更亮）
+                if (water > 30) {
+                  const highlightAlpha = 0.06 + (water / 100) * 0.1;
+                  ctx.fillStyle = `rgba(255,255,255,${highlightAlpha})`;
+                  ctx.fillRect(px, py, SUB_TILE_SIZE, 1);
+                }
+              }
+
+              // --- 地势陡坎阴影（2.5D 侧壁效果） ---
+              if (sx < 3) {
+                const eRight = getElevation(cell, sx + 1, sy);
+                if (Math.abs(elev - eRight) >= 2) {
+                  ctx.fillStyle = elev > eRight
+                    ? 'rgba(0,0,0,0.25)'
+                    : 'rgba(255,255,255,0.15)';
+                  ctx.fillRect(px + SUB_TILE_SIZE - 1, py, 1, SUB_TILE_SIZE);
+                }
+              }
+              if (sy < 3) {
+                const eDown = getElevation(cell, sx, sy + 1);
+                if (Math.abs(elev - eDown) >= 2) {
+                  ctx.fillStyle = elev > eDown
+                    ? 'rgba(0,0,0,0.25)'
+                    : 'rgba(255,255,255,0.15)';
+                  ctx.fillRect(px, py + SUB_TILE_SIZE - 1, SUB_TILE_SIZE, 1);
+                }
+              }
+            }
+          }
+
+          // 逻辑格线
+          ctx.strokeStyle = 'rgba(255,255,255,0.04)';
+          ctx.strokeRect(cx * LOGIC_TILE_SIZE, cy * LOGIC_TILE_SIZE, LOGIC_TILE_SIZE, LOGIC_TILE_SIZE);
+        }
+      }
+
+      // 统计显示
+      document.getElementById('stat-water').textContent = totalWater.toFixed(0);
+      document.getElementById('stat-level').textContent =
+        wCount > 0 ? `${minSurf.toFixed(1)} ~ ${maxSurf.toFixed(1)}` : '无水';
+      document.getElementById('stat-flow').textContent = flowTransfers;
+      document.getElementById('stat-tick').textContent = tickCount;
+    }
+
+    /** 地势颜色：暖色高地 → 冷色低地 */
+    function elevColor(elev: number, terrain: string, hasWater: boolean): string {
+      if (hasWater && elev <= 0) return '#1a4060';
+      if (terrain === 'stone') return elev >= 7 ? '#b0b0b0' : elev >= 5 ? '#9e9e9e' : '#757575';
+      if (elev >= 9) return '#b8d860';
+      if (elev >= 8) return '#a8c850';
+      if (elev >= 7) return '#8bb838';
+      if (elev >= 6) return '#7ca830';
+      if (elev >= 5) return '#6baa3d';
+      if (elev >= 4) return '#8d6e63';
+      if (elev >= 3) return '#7d5e53';
+      if (elev >= 2) return '#6d4c41';
+      if (elev >= 1) return '#5a3828';
+      return '#3a2010';
+    }
+
+    // ==================== 水流循环（每250ms迭代8轮） ====================
+    let lastWaterTick = 0;
+    const WATER_INTERVAL = 250;
+
+    function gameLoop(timestamp) {
+      if (timestamp - lastWaterTick > WATER_INTERVAL) {
+        const result = tickWaterFlow(grid, W, H);
+        flowTransfers = Math.round(result.transfers / 8); // 平均每轮转移次数
+        tickCount++;
+        lastWaterTick = timestamp;
+      }
+
+      redraw();
+      requestAnimationFrame(gameLoop);
+    }
+
+    // ==================== 启动 ====================
+    redraw();
+    lastWaterTick = performance.now();
+    requestAnimationFrame(gameLoop);
+    console.log('✅ 水流模拟 v2 已就绪 — 等水平面 + 压力驱动 + 250ms迭代');
+  </script>
+</body>
+</html>

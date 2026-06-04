@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>等距 2.5D 地图 + 水流</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #1a1a2e; font-family: 'Microsoft YaHei', sans-serif; display: flex; flex-direction: column; align-items: center; padding: 15px; color: #fff; overflow: hidden; }
+  h1 { font-size: 16px; color: #e94560; margin-bottom: 2px; }
+  .subtitle { font-size: 11px; color: #888; margin-bottom: 8px; }
+  #mc { cursor: crosshair; border: 2px solid #0f3460; }
+  .tools { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin: 8px 0; }
+  .tools button { padding: 6px 12px; border: 1px solid #0f3460; background: #16213e; color: #fff; border-radius: 3px; cursor: pointer; font-size: 12px; }
+  .tools button:hover { border-color: #e94560; }
+  .tools button.act { background: #e94560; border-color: #e94560; }
+  .status { font-size: 10px; color: #888; display: flex; gap: 16px; }
+</style>
+</head>
+<body>
+<h1>🏔️ 等距 2.5D 地图 + 水流物理</h1>
+<p class="subtitle">挖土→水自动流入低洼处 | 等水平面 | 泊肃叶流</p>
+<canvas id="mc"></canvas>
+<div class="tools">
+  <button id="bd" class="act">挖土 Q</button>
+  <button id="bf">填土 W</button>
+  <button id="reset">重置</button>
+  <select id="bs"><option value="1">1格</option><option value="2">2格</option><option value="3" selected>3格</option></select>
+</div>
+<div class="status">
+  <span>总水量: <b id="sw">0</b></span>
+  <span>水位: <b id="sl">-</b></span>
+</div>
+
+<script>
+// ============== 等距坐标 ==============
+const MAP_W = 16, MAP_H = 12;
+const TILE_W = 64, TILE_H = 32;
+const HEIGHT_SCALE = 4;
+const ZOOM_STEP = 0.1;
+const RIVER_DEPTH = 3;    // 河水初始深度
+
+let zoom = 1.0;
+let offsetX = 0, offsetY = 0;
+let dragging = false, dragStartX = 0, dragStartY = 0, dragOffX = 0, dragOffY = 0;
+
+// grid[y][x] = { elev, depth(水量), terr }
+let grid = [];
+
+function initGrid() {
+  grid = [];
+  for (let y = 0; y < MAP_H; y++) {
+    grid[y] = [];
+    for (let x = 0; x < MAP_W; x++) {
+      if (y >= 5 && y <= 6) {
+        grid[y][x] = { elev: 0, depth: RIVER_DEPTH, terr: 'river' };
+      } else if (y >= 8 && y <= 9 && x >= 10 && x <= 13) {
+        grid[y][x] = { elev: 8, depth: 0, terr: 'stone' };
+      } else if (y >= 2 && y <= 4 && x >= 2 && x <= 5) {
+        grid[y][x] = { elev: 7, depth: 0, terr: 'grass' };
+      } else if ((x + y) % 3 === 0) {
+        grid[y][x] = { elev: 5 + Math.round(Math.random() * 2), depth: 0, terr: 'grass' };
+      } else {
+        grid[y][x] = { elev: 5, depth: 0, terr: 'grass' };
+      }
+    }
+  }
+}
+
+// ============== 水流物理 (泊肃叶流, 从 Kimi 版移植) ==============
+const K = 2.0;     // 渗透率
+const DT = 0.016;
+
+function surface(c) { return c.elev + c.depth; }
+
+function simulateFlow() {
+  const delta = Array.from({ length: MAP_H }, () => new Array(MAP_W).fill(0));
+  let maxF = 0;
+
+  for (let y = 0; y < MAP_H; y++) {
+    for (let x = 0; x < MAP_W; x++) {
+      const c = grid[y][x];
+      if (c.depth <= 0.001) continue;
+      const hA = surface(c);
+      const dirs = [[0,-1],[0,1],[-1,0],[1,0]];
+      for (const [dx, dy] of dirs) {
+        const nx = x + dx, ny = y + dy;
+        if (nx < 0 || nx >= MAP_W || ny < 0 || ny >= MAP_H) continue;
+        const n = grid[ny][nx];
+        const hB = surface(n);
+        const dH = hA - hB;
+        if (dH <= 0) continue;
+        const avail = Math.max(0, c.depth - 0.001);
+        const maxGive = avail * 0.3;
+        const flow = Math.min(K * dH * DT, maxGive);
+        if (flow > 0) {
+          delta[y][x] -= flow;
+          delta[ny][nx] += flow;
+          maxF = Math.max(maxF, flow);
+        }
+      }
+    }
+  }
+
+  const pre = sumWater();
+  for (let y = 0; y < MAP_H; y++)
+    for (let x = 0; x < MAP_W; x++) {
+      grid[y][x].depth = Math.max(0, Math.min(10, grid[y][x].depth + delta[y][x]));
+    }
+  const post = sumWater();
+  const leaked = pre - post;
+  if (leaked > 0.01) {
+    const wc = [];
+    for (let y = 0; y < MAP_H; y++)
+      for (let x = 0; x < MAP_W; x++)
+        if (grid[y][x].depth > 0.001) wc.push([y, x]);
+    if (wc.length > 0) {
+      const each = leaked / wc.length;
+      for (const [y, x] of wc) grid[y][x].depth = Math.min(10, grid[y][x].depth + each);
+    }
+  }
+  return maxF;
+}
+
+function sumWater() {
+  let s = 0;
+  for (let y = 0; y < MAP_H; y++)
+    for (let x = 0; x < MAP_W; x++) s += grid[y][x].depth;
+  return s;
+}
+
+function iterateFlow(steps = 20) {
+  for (let i = 0; i < steps; i++) {
+    if (simulateFlow() < 0.0001) break;
+  }
+}
+
+// ============== 坐标转换 ==============
+function toScreen(mx, my, elev = 5) {
+  const sx = (mx - my) * (TILE_W / 2);
+  const sy = (mx + my) * (TILE_H / 2) - elev * HEIGHT_SCALE;
+  return [sx * zoom + offsetX, sy * zoom + offsetY];
+}
+
+function toMap(screenX, screenY) {
+  const wx = (screenX - offsetX) / zoom;
+  const wy = (screenY - offsetY) / zoom;
+  const hw = TILE_W / 2, hh = TILE_H / 2;
+  const det = hw * hh + hw * hh;
+  const mx = (wx * hh + wy * hw) / det;
+  const my = (wy * hw - wx * hh) / det;
+  return [Math.round(mx), Math.round(my)];
+}
+
+// ============== 渲染 ==============
+const canvas = document.getElementById('mc');
+canvas.width = 900; canvas.height = 600;
+const ctx = canvas.getContext('2d');
+
+function tileColors(elev, terr) {
+  if (terr === 'stone') {
+    if (elev >= 7) return { top: '#b0b0b0', left: '#909090', right: '#808080' };
+    return { top: '#909090', left: '#707070', right: '#606060' };
+  }
+  if (terr === 'river') return { top: '#5a8ab5', left: '#4575a0', right: '#3a6590' };
+  if (terr === 'dirt') {
+    if (elev >= 5) return { top: '#a08060', left: '#8a6a4a', right: '#7a5a3a' };
+    if (elev >= 3) return { top: '#8d6e63', left: '#7d5e53', right: '#6d4c41' };
+    return { top: '#6d4c41', left: '#5a3828', right: '#4a2818' };
+  }
+  if (elev >= 8) return { top: '#a8c850', left: '#8ab838', right: '#7aa828' };
+  if (elev >= 6) return { top: '#8bc34a', left: '#6baa3d', right: '#5a9a30' };
+  if (elev >= 4) return { top: '#7cb342', left: '#5c9a28', right: '#4a8a1a' };
+  return { top: '#8d6e63', left: '#7d5e53', right: '#6d4c41' };
+}
+
+function drawTile(mx, my, elev, terr, depth) {
+  const [cx, cy] = toScreen(mx, my, 0);
+  const hw = (TILE_W / 2) * zoom;
+  const hh = (TILE_H / 2) * zoom;
+  const yOff = elev * HEIGHT_SCALE * zoom;
+  const top = cy - yOff;
+
+  const colors = tileColors(elev, terr);
+  const sideH = yOff;
+
+  // 左面
+  ctx.fillStyle = colors.left;
+  ctx.beginPath();
+  ctx.moveTo(cx, top); ctx.lineTo(cx - hw, top + hh);
+  ctx.lineTo(cx - hw, top + hh + sideH); ctx.lineTo(cx, top + sideH);
+  ctx.closePath(); ctx.fill();
+
+  // 右面
+  ctx.fillStyle = colors.right;
+  ctx.beginPath();
+  ctx.moveTo(cx, top); ctx.lineTo(cx + hw, top + hh);
+  ctx.lineTo(cx + hw, top + hh + sideH); ctx.lineTo(cx, top + sideH);
+  ctx.closePath(); ctx.fill();
+
+  // 顶面
+  ctx.fillStyle = colors.top;
+  ctx.beginPath();
+  ctx.moveTo(cx, top); ctx.lineTo(cx - hw, top + hh);
+  ctx.lineTo(cx, top + hh * 2); ctx.lineTo(cx + hw, top + hh);
+  ctx.closePath(); ctx.fill();
+
+  // 水面层
+  if (depth > 0.1) {
+    const waterYOff = depth * HEIGHT_SCALE * zoom;
+    const alpha = depth < 0.5 ? 0.3 : 0.35 + Math.min(0.45, depth / 6);
+
+    // 水体：从地势面往下延伸到地势=0处
+    if (depth > 0.3) {
+      // 左侧水深
+      const bottomPad = Math.max(0, (elev - depth) * HEIGHT_SCALE * zoom);
+      ctx.fillStyle = `rgba(30,120,210,${alpha * 0.6})`;
+      ctx.beginPath();
+      ctx.moveTo(cx, top + sideH - bottomPad);
+      ctx.lineTo(cx - hw, top + hh + sideH - bottomPad);
+      ctx.lineTo(cx - hw, top + hh + sideH);
+      ctx.lineTo(cx, top + sideH);
+      ctx.closePath(); ctx.fill();
+
+      // 右侧水深
+      ctx.beginPath();
+      ctx.moveTo(cx, top + sideH - bottomPad);
+      ctx.lineTo(cx + hw, top + hh + sideH - bottomPad);
+      ctx.lineTo(cx + hw, top + hh + sideH);
+      ctx.lineTo(cx, top + sideH);
+      ctx.closePath(); ctx.fill();
+    }
+
+    // 水面
+    ctx.fillStyle = `rgba(66,165,245,${alpha})`;
+    ctx.beginPath();
+    ctx.moveTo(cx, top - waterYOff);
+    ctx.lineTo(cx - hw, top + hh - waterYOff);
+    ctx.lineTo(cx, top + hh * 2 - waterYOff);
+    ctx.lineTo(cx + hw, top + hh - waterYOff);
+    ctx.closePath(); ctx.fill();
+
+    // 水面高光
+    if (depth > 1) {
+      ctx.fillStyle = `rgba(255,255,255,${0.03 + depth * 0.02})`;
+      ctx.beginPath();
+      ctx.moveTo(cx, top - waterYOff);
+      ctx.lineTo(cx - hw, top + hh - waterYOff);
+      ctx.lineTo(cx, top + hh * 2 - waterYOff);
+      ctx.lineTo(cx + hw, top + hh - waterYOff);
+      ctx.closePath(); ctx.fill();
+    }
+  }
+}
+
+function redraw() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = '#0a0a1a';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  for (let sum = 0; sum <= MAP_W + MAP_H - 2; sum++) {
+    for (let mx = Math.max(0, sum - MAP_H + 1); mx <= Math.min(MAP_W - 1, sum); mx++) {
+      const my = sum - mx;
+      if (my < 0 || my >= MAP_H) continue;
+      const cell = grid[my][mx];
+      drawTile(mx, my, cell.elev, cell.terr, cell.depth);
+    }
+  }
+
+  let tw = 0, wc = 0, maxS = -1, minS = 99;
+  for (let y = 0; y < MAP_H; y++)
+    for (let x = 0; x < MAP_W; x++) {
+      const c = grid[y][x];
+      tw += c.depth;
+      if (c.depth > 0.1) { wc++; const s = surface(c); if (s > maxS) maxS = s; if (s < minS) minS = s; }
+    }
+  document.getElementById('sw').textContent = tw.toFixed(1);
+  document.getElementById('sl').textContent = wc > 0 ? `${minS.toFixed(1)}~${maxS.toFixed(1)}` : '-';
+}
+
+// ============== 操作 ==============
+let tool = 'dig', brush = 3;
+
+function dig(x, y) {
+  if (x < 0 || x >= MAP_W || y < 0 || y >= MAP_H) return;
+  const c = grid[y][x];
+  if (c.elev > 0) { c.elev--; if (c.terr === 'grass') c.terr = 'dirt'; }
+}
+function fill(x, y) {
+  if (x < 0 || x >= MAP_W || y < 0 || y >= MAP_H) return;
+  const c = grid[y][x];
+  if (c.depth > 0) {
+    const pushed = Math.min(c.depth, 1);
+    c.depth -= pushed;
+    for (const [dx, dy] of [[0,-1],[0,1],[-1,0],[1,0]]) {
+      const nx = x + dx, ny = y + dy;
+      if (nx >= 0 && nx < MAP_W && ny >= 0 && ny < MAP_H) grid[ny][nx].depth += pushed / 4;
+    }
+  }
+  if (c.elev < 10) c.elev++;
+  if (c.terr === 'grass') c.terr = 'dirt';
+}
+
+document.getElementById('bd').onclick = () => { tool = 'dig'; updateBtns(); };
+document.getElementById('bf').onclick = () => { tool = 'fill'; updateBtns(); };
+document.getElementById('bs').onchange = e => { brush = +e.target.value; };
+document.getElementById('reset').onclick = () => { initGrid(); redraw(); };
+document.onkeydown = e => {
+  if (e.key === 'q') { tool = 'dig'; updateBtns(); }
+  if (e.key === 'w') { tool = 'fill'; updateBtns(); }
+};
+function updateBtns() {
+  document.getElementById('bd').classList.toggle('act', tool === 'dig');
+  document.getElementById('bf').classList.toggle('act', tool === 'fill');
+}
+
+canvas.addEventListener('click', e => {
+  if (dragging) return;
+  const rect = canvas.getBoundingClientRect();
+  const [mx, my] = toMap(e.clientX - rect.left, e.clientY - rect.top);
+  for (let dy = 0; dy < brush; dy++)
+    for (let dx = 0; dx < brush; dx++) {
+      const tx = mx + dx - Math.floor(brush/2);
+      const ty = my + dy - Math.floor(brush/2);
+      if (tool === 'dig') dig(tx, ty); else fill(tx, ty);
+    }
+  iterateFlow(20); // 操作后立刻平衡水流
+  redraw();
+});
+
+// 拖动+缩放
+canvas.addEventListener('mousedown', e => {
+  dragging = true; dragStartX = e.clientX; dragStartY = e.clientY;
+  dragOffX = offsetX; dragOffY = offsetY;
+});
+canvas.addEventListener('mousemove', e => {
+  if (!dragging) return;
+  offsetX = dragOffX + (e.clientX - dragStartX);
+  offsetY = dragOffY + (e.clientY - dragStartY);
+  redraw();
+});
+canvas.addEventListener('mouseup', () => { dragging = false; });
+canvas.addEventListener('mouseleave', () => { dragging = false; });
+canvas.addEventListener('wheel', e => {
+  e.preventDefault();
+  zoom = Math.max(0.5, Math.min(2.5, zoom + (e.deltaY > 0 ? -0.1 : 0.1)));
+  redraw();
+});
+
+// ============== 主循环 ==============
+function loop() {
+  // 河流补水
+  for (let y = 0; y < MAP_H; y++)
+    for (let x = 0; x < MAP_W; x++) {
+      const c = grid[y][x];
+      if (c.terr === 'river' && c.depth < RIVER_DEPTH) c.depth += 0.05;
+    }
+  simulateFlow();
+  redraw();
+  requestAnimationFrame(loop);
+}
+
+initGrid();
+offsetX = canvas.width / 2;
+offsetY = 100;
+redraw();
+requestAnimationFrame(loop);
+console.log('✅ 等距2.5D + 水流物理已启动');
+</script>
+</body>
+</html>

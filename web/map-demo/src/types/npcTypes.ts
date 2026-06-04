@@ -216,6 +216,9 @@ export interface NpcDefinition {
     物品栏?: Item[];
     金钱?: number;
     记忆标签?: string[];
+    标签?: string[];
+    好感度?: Record<string, number>;
+    技能?: Record<string, number>;
     知识库?: {
       已知地点?: Record<string, any>;
       已知人物?: Record<string, any>;
